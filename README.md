@@ -14,19 +14,17 @@ MediaSource playback over Socket.IO.
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Requirements](#requirements)
-- [Install with Docker Compose](#install-with-docker-compose)
-  - [1. Get the code](#1-get-the-code)
+- [Install with the pre-built image](#install-with-the-pre-built-image)
+  - [1. Create the Compose file](#1-create-the-compose-file)
   - [2. Create your `.env`](#2-create-your-env)
-  - [3. Generate a `SECRET_KEY`](#3-generate-a-secret_key)
-  - [4. Set the bootstrap admin password](#4-set-the-bootstrap-admin-password)
-  - [5. Choose an HTTPS strategy](#5-choose-an-https-strategy)
-  - [6. Build and run](#6-build-and-run)
-  - [7. First sign-in](#7-first-sign-in)
+  - [3. Choose an HTTPS strategy](#3-choose-an-https-strategy)
+  - [4. Pull and run](#4-pull-and-run)
+  - [5. First sign-in](#5-first-sign-in)
+- [Build from source instead](#build-from-source-instead)
 - [Configuration reference (`.env`)](#configuration-reference-env)
 - [Production behind a reverse proxy](#production-behind-a-reverse-proxy)
 - [Operating the container](#operating-the-container)
 - [Updating](#updating)
-- [Pull from Docker Hub](#pull-from-docker-hub)
 - [Release notes & changelog](#release-notes--changelog)
 - [Development (without Docker)](#development-without-docker)
 - [Tech](#tech)
@@ -34,20 +32,65 @@ MediaSource playback over Socket.IO.
 
 ## Features
 
+### Watching
+
 - **Public viewer at `/`** — autoplay (muted by default), mute/unmute,
-  volume, fullscreen, a live viewer count, and a dark/light theme.
-- **Admin at `/admin`** — login-gated, with a fixed-header / scrollable
-  middle / fixed-footer sidebar, a settings modal with a blurred
-  backdrop, and dashboard / broadcaster / user-management views.
+  volume, fullscreen, and a live viewer count. No account needed to
+  watch.
+- **"Now Showing" panel** — the broadcaster can label the stream with a
+  title, description, IMDB link, and a poster image; viewers open it
+  from the player and it updates live as the host changes it.
+- **Light & dark theme** — a polished, responsive interface that
+  remembers your theme choice, with no flash on load.
+
+### Live chat
+
+- **Real-time chat panel** alongside the stream — slides in from the
+  edge, with a live participant count and a message history for
+  late-joiners.
+- **Pick a name and emoji avatar** — viewers join with a display name
+  and a fun emoji from a curated palette; profiles are editable on the
+  fly.
+- **Replies, @-mentions, and emoji reactions** — reply to a specific
+  message, mention other participants from an autocomplete menu, and
+  react to messages with emoji. Pin the panel open or mute it as you
+  like.
+- **Join / leave announcements** with a short grace period so quick
+  reconnects don't spam the room.
+
+### Voice talk-back
+
+- **Viewers can talk back** — joined viewers can speak so the whole room
+  hears them. The mic is captured, run through voice-activity detection,
+  downsampled, and streamed over the same Socket.IO connection; every
+  page mixes all speakers through one Web Audio context, so several
+  people can talk at once.
+
+### Broadcasting & moderation
+
 - **Broadcast from the browser** — capture camera + mic, or share a
-  video file, and go live in one click.
+  video file, and go live in one click. No plugins or native apps.
+- **Broadcaster console at `/admin/stream`** — go live, edit the "Now
+  Showing" metadata, and watch the chat in real time.
+- **Live participants panel** — a roster of everyone in the chat with
+  per-person mute/unmute, a "mute all" control, and a mic indicator
+  that highlights whoever is speaking. Disruptive viewers can be banned
+  by IP.
+
+### Administration & security
+
+- **Admin dashboard at `/admin`** — login-gated, with a fixed-header /
+  scrollable-middle / fixed-footer sidebar and a settings modal (Profile
+  / Users / Security / About) over a blurred backdrop.
 - **Roles & permissions** — admin / streamer / viewer with a tight
-  capability map. Admins manage users; streamers can go live.
+  capability map. Admins manage users from Settings → Users; streamers
+  can go live.
 - **Secure by default** — bcrypt passwords, CSRF on all forms, hardened
   session cookies, per-request CSP nonces, account-lockout on brute
   force, login rate limiting, and an optional Cloudflare Turnstile
   captcha. ProxyFix support for HTTPS-terminating reverse proxies.
-- **Docker-first** — ships as a single Docker Compose service.
+- **Docker-first** — runs as a single container; image published on
+  [Docker Hub](https://hub.docker.com/r/viibeware/viibestream).
 
 ## How it works
 
@@ -70,58 +113,88 @@ full architecture map.
   ```
 - A modern browser for broadcasting. Browsers only expose
   `getUserMedia` (camera/mic) on `http://localhost` or over **HTTPS** —
-  see [step 5](#5-choose-an-https-strategy).
+  see [step 3](#3-choose-an-https-strategy).
 
-## Install with Docker Compose
+## Install with the pre-built image
 
-### 1. Get the code
+The fastest path: run the published image from
+[`viibeware/viibestream`](https://hub.docker.com/r/viibeware/viibestream)
+— no clone, no build. You just need an empty folder for your Compose
+file and your `.env`.
 
 ```bash
-git clone https://github.com/viibeware/viibestream.git
-cd viibestream
+mkdir viibestream && cd viibestream
+```
+
+### 1. Create the Compose file
+
+Create `docker-compose.yml` in that folder, pointing at the published
+image:
+
+```yaml
+# docker-compose.yml
+services:
+  viibestream:
+    image: viibeware/viibestream:latest   # or pin a version, e.g. :0.1.0
+    container_name: viibestream
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+    ports:
+      # host PORT → container INTERNAL_PORT (8000 plain / 8443 with TLS)
+      - "0.0.0.0:${PORT:-8080}:${INTERNAL_PORT:-8000}"
+    volumes:
+      - viibestream_data:/app/instance   # SQLite DB persists here
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+
+volumes:
+  viibestream_data:
 ```
 
 ### 2. Create your `.env`
 
-All configuration lives in a `.env` file at the project root. Start from
-the template:
+All configuration lives in a `.env` file next to `docker-compose.yml`.
+Grab the annotated template from the repo and copy it to `.env`:
 
 ```bash
-cp .env.example .env
+curl -fsSL https://raw.githubusercontent.com/viibeware/viibestream/main/.env.example -o .env
 ```
 
-`.env` holds secrets and is git-ignored — **never commit it.** Open it
-in your editor; the next steps walk through the values you must set.
+`.env` holds secrets and must **never** be committed to git. Open it in
+your editor and set the values below.
 
-### 3. Generate a `SECRET_KEY`
-
-The `SECRET_KEY` signs session cookies and CSRF tokens. It must be a
-long, random, secret string. Generate one with Python:
+**Generate a `SECRET_KEY`.** It signs session cookies and CSRF tokens
+and must be a long, random, secret string:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(64))"
-```
-
-If you don't have Python on the host, use OpenSSL instead:
-
-```bash
+# no Python on the host? use OpenSSL:
 openssl rand -base64 64 | tr -d '\n'; echo
 ```
 
-Copy the output and paste it into `.env`:
+Paste the output into `.env`:
 
 ```env
 SECRET_KEY=<paste the long random string here>
 ```
 
 > Treat `SECRET_KEY` like a password. Changing it later invalidates all
-> existing sessions (everyone is logged out), which is exactly what you
+> existing sessions (everyone is logged out) — which is exactly what you
 > want if it ever leaks.
 
-### 4. Set the bootstrap admin password
-
-On first boot, if no admin user exists yet, Viibestream seeds one from
-these `.env` values:
+**Set the bootstrap admin password.** On first boot, if no admin exists
+yet, Viibestream seeds one from these values:
 
 ```env
 INITIAL_ADMIN_USERNAME=admin
@@ -129,15 +202,15 @@ INITIAL_ADMIN_EMAIL=admin@example.com
 INITIAL_ADMIN_PASSWORD=<a strong one-time password>
 ```
 
-`INITIAL_ADMIN_PASSWORD` is only used to create that first account.
-After you sign in and change your password (Settings → Profile), remove
-or blank the line so the bootstrap can't run again:
+`INITIAL_ADMIN_PASSWORD` is used only to create that first account.
+After you sign in and change your password (Settings → Profile), blank
+the line so the bootstrap can't run again:
 
 ```env
 INITIAL_ADMIN_PASSWORD=
 ```
 
-### 5. Choose an HTTPS strategy
+### 3. Choose an HTTPS strategy
 
 Browsers refuse to expose camera/microphone capture on any non-localhost
 HTTP origin, so pick **one** strategy in `.env`:
@@ -153,14 +226,14 @@ from (comma-separated) — Socket.IO rejects WebSocket handshakes from
 origins not in this list. For a public domain include the `https://`
 form, e.g. `PUBLIC_ORIGIN=https://stream.example.com`.
 
-### 6. Build and run
+### 4. Pull and run
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
 
-This builds the image and starts the `viibestream` service in the
-background. By default it publishes host port **`8080`** (override with
+By default the service publishes host port **`8080`** (override with
 `PORT` in `.env`). Watch the logs and health:
 
 ```bash
@@ -168,14 +241,31 @@ docker compose logs -f          # follow startup logs (Ctrl-C to stop)
 curl -fsS http://localhost:8080/healthz   # -> {"ok": true, "version": "..."}
 ```
 
-### 7. First sign-in
+### 5. First sign-in
 
 1. Open **http://localhost:8080** — the public viewer (no stream yet).
 2. Go to **http://localhost:8080/auth/login** and sign in with
    `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD`.
 3. Change your password under **Settings → Profile**, then blank
-   `INITIAL_ADMIN_PASSWORD` in `.env` (see [step 4](#4-set-the-bootstrap-admin-password)).
+   `INITIAL_ADMIN_PASSWORD` in `.env` (see [step 2](#2-create-your-env)).
 4. Open **http://localhost:8080/admin/stream** and go live.
+
+## Build from source instead
+
+Prefer to build the image yourself? Clone the repo — it ships its own
+`docker-compose.yml` with `build: .`:
+
+```bash
+git clone https://github.com/viibeware/viibestream.git
+cd viibestream
+cp .env.example .env            # then edit as in step 2 above
+docker compose up --build -d
+```
+
+The `.env` setup is identical to
+[step 2](#2-create-your-env) and [step 3](#3-choose-an-https-strategy)
+above; the only difference is `docker compose up --build` compiles the
+image locally instead of pulling it.
 
 ## Configuration reference (`.env`)
 
@@ -255,33 +345,21 @@ Only `docker compose down -v` removes it.
 
 ## Updating
 
-```bash
-git pull
-docker compose up --build -d
-```
-
-Your `.env` and the `viibestream_data` volume are preserved across
-updates.
-
-## Pull from Docker Hub
-
-Prebuilt images are published at
-[`viibeware/viibestream`](https://hub.docker.com/r/viibeware/viibestream).
-To run a published image instead of building locally, point the Compose
-service at it:
-
-```yaml
-# docker-compose.yml
-services:
-  viibestream:
-    image: viibeware/viibestream:latest   # or pin a version, e.g. :0.1.0
-    # remove the `build: .` line when using a published image
-```
+**Pre-built image:**
 
 ```bash
 docker compose pull
 docker compose up -d
 ```
+
+**Built from source:**
+
+```bash
+git pull
+docker compose up --build -d
+```
+
+Either way, your `.env` and the `viibestream_data` volume are preserved.
 
 ## Release notes & changelog
 
