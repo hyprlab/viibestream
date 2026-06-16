@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Sign in — {{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+</head>
+<body class="auth">
+  <main class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img class="brand-logo brand-logo--lg" src="{{ url_for('static', filename='img/logo.svg') }}" alt="" aria-hidden="true">
+        <div class="auth-headline">
+          <div class="auth-title">{{ app_name }}</div>
+          <div class="auth-sub">Sign in to continue</div>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+          {% for category, msg in messages %}
+            <div class="flash flash--{{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" class="stacked-form auth-form" novalidate>
+        {{ form.csrf_token }}
+        <label>
+          <span>Username</span>
+          {{ form.username(required=True) }}
+        </label>
+        <label>
+          <span>Password</span>
+          {{ form.password(required=True) }}
+        </label>
+        <label class="checkbox auth-remember">
+          {{ form.remember }} <span>Stay signed in</span>
+        </label>
+        {% if turnstile_site_key %}
+        <div class="cf-turnstile auth-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary btn-block auth-submit">Sign in</button>
+      </form>
+
+      <p class="auth-foot muted">
+        Public viewers can <a href="{{ url_for('main.viewer') }}">watch the live stream</a> without signing in.
+      </p>
+    </div>
+  </main>
+  {% if turnstile_site_key %}
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer nonce="{{ csp_nonce }}"></script>
+  {% endif %}
+</body>
+</html>

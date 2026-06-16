@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>{{ app_name }} — Live</title>
+  <meta name="description" content="Watch the live stream on {{ app_name }}.">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+</head>
+<body class="public locked">
+  <!-- Safari performance warning. Revealed by browser-warning.js only on
+       Safari (where MSE playback can stutter) and only until dismissed.
+       Fixed above the lock screen so it's visible before the access code
+       is entered. -->
+  <div class="browser-warning" id="browser-warning" role="alert" hidden>
+    <svg class="browser-warning-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="browser-warning-text">
+      Video may perform poorly in Safari. For the best experience, switch to
+      <strong>Chrome</strong> or <strong>Firefox</strong>.
+    </span>
+    <button type="button" class="browser-warning-close" id="browser-warning-close"
+            aria-label="Dismiss this warning">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <header class="public-header">
+    <a class="public-brand" href="{{ url_for('main.viewer') }}">
+      <img class="public-brand-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="" aria-hidden="true">
+      <span class="public-brand-name">{{ app_name }}</span>
+    </a>
+
+    <div class="public-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="info-btn"
+              data-open-modal="info-modal"
+              title="About this stream" aria-label="About this stream" hidden>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span id="info-btn-label">Now Showing</span>
+      </button>
+      <span class="status-chip" id="ws-status" data-state="connecting">Connecting…</span>
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-ghost btn-sm">Admin</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">Sign in</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="public-main">
+    <div class="player">
+      <div class="player-stage">
+        <video id="player" autoplay muted playsinline></video>
+
+        <div class="player-overlay" id="offline-overlay"
+             {% if broadcast.live %}hidden{% endif %}>
+          <!-- Default OFF AIR message. Swapped for the Now Showing card by
+               CSS (html.has-now-showing) when an entry is selected. -->
+          <div class="overlay-stack offline-default">
+            <div class="overlay-eyebrow">OFF AIR</div>
+            <div class="overlay-sub">Video stream will start automatically</div>
+          </div>
+
+          <!-- Now Showing card — same as the paused one, but the header
+               reads OFF AIR / "Video will start automatically". Populated
+               by info.js. -->
+          <div class="paused-now-showing" id="offline-now-showing">
+            <div class="paused-ns-poster">
+              <img id="offline-ns-poster" alt="" hidden>
+              <div class="paused-ns-poster-empty" id="offline-ns-poster-empty">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+            </div>
+            <div class="paused-ns-body">
+              <div class="paused-ns-eyebrow">OFF AIR · Now showing</div>
+              <div class="paused-ns-note">Video will start automatically</div>
+              <h2 class="paused-ns-title" id="offline-ns-title">—</h2>
+              <p class="paused-ns-desc" id="offline-ns-desc"></p>
+              <div class="paused-ns-links">
+                <a id="offline-ns-imdb" class="info-link" href="#" target="_blank" rel="noopener" hidden>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <span>View on IMDB</span>
+                </a>
+                <a id="offline-ns-trailer" class="info-link info-link--accent" href="#" target="_blank" rel="noopener" hidden>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Watch trailer</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="player-overlay" id="paused-overlay"
+             {% if not (broadcast.live and broadcast.paused) %}hidden{% endif %}>
+          <!-- Default paused message. Shown when no Now Showing entry is
+               set; hidden by CSS (html.has-now-showing) when one exists. -->
+          <div class="overlay-stack paused-default">
+            <svg class="overlay-pause-icon" viewBox="0 0 24 24" width="72" height="72" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="11" stroke-width="1"/>
+              <rect x="9" y="8" width="2.25" height="8" rx="0.5"/>
+              <rect x="12.75" y="8" width="2.25" height="8" rx="0.5"/>
+            </svg>
+            <div class="overlay-eyebrow">Paused</div>
+            <div class="overlay-sub">The broadcaster paused the stream</div>
+          </div>
+
+          <!-- Now Showing card — mirrors the info modal, centered in the
+               video panel. Populated by info.js; only visible while paused
+               with an entry set (html.has-now-showing). -->
+          <div class="paused-now-showing" id="paused-now-showing">
+            <div class="paused-ns-poster">
+              <img id="paused-ns-poster" alt="" hidden>
+              <div class="paused-ns-poster-empty" id="paused-ns-poster-empty">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+            </div>
+            <div class="paused-ns-body">
+              <div class="paused-ns-eyebrow">Paused · Now showing</div>
+              <h2 class="paused-ns-title" id="paused-ns-title">—</h2>
+              <p class="paused-ns-desc" id="paused-ns-desc"></p>
+              <div class="paused-ns-links">
+                <a id="paused-ns-imdb" class="info-link" href="#" target="_blank" rel="noopener" hidden>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <span>View on IMDB</span>
+                </a>
+                <a id="paused-ns-trailer" class="info-link info-link--accent" href="#" target="_blank" rel="noopener" hidden>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  <span>Watch trailer</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="unmute-badge" id="unmute-btn" hidden
+                title="Audio is muted — click to enable sound">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <span>Click for sound</span>
+        </button>
+
+        <!-- Floating emoji reactions rain down over the video here. -->
+        <div class="video-reactions" id="video-reactions" aria-hidden="true"></div>
+
+        <!-- Transient "who reacted" pill — slides in/out at the top center. -->
+        <div class="reaction-sender" id="reaction-sender" aria-hidden="true"></div>
+
+        <!-- Broadcaster alert banner — drops down from the top until cleared. -->
+        <div class="video-alert" id="video-alert" role="status" aria-live="polite">
+          <svg class="video-alert-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+          <span class="video-alert-text" id="video-alert-text"></span>
+        </div>
+
+        <!-- One-time voice tip — drops down the first time the viewer turns
+             their mic on this session (driven by talk.js). -->
+        <div class="voice-hint" id="voice-hint" role="status" aria-live="polite">
+          <svg class="voice-hint-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+          <span class="voice-hint-text">You're on the mic — headphones keep everyone's audio clear and echo-free.</span>
+          <button type="button" class="voice-hint-close" id="voice-hint-close" aria-label="Dismiss">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fullscreen only: hovering the bottom of the screen slides the
+           control bar up; it tucks away again otherwise. Hidden in the
+           normal layout. -->
+      <div class="player-controls-trigger" aria-hidden="true"></div>
+
+      <div class="player-controls" id="player-controls">
+        <button type="button" class="player-btn" id="mute-btn" title="Mute / unmute" aria-pressed="true" aria-label="Mute or unmute">
+          <svg class="ico-muted" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <svg class="ico-vol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </button>
+
+        <input type="range" id="volume" class="volume" min="0" max="1" step="0.01" value="1"
+               aria-label="Volume">
+
+        <div class="player-meta">
+          <span class="live-dot" id="live-dot"></span>
+          <span class="player-meta-label" id="live-label">Offline</span>
+          <span class="dot-sep">·</span>
+          <span><strong id="viewer-count">{{ broadcast.viewers }}</strong> watching</span>
+          <span class="dot-sep" id="latency-sep" hidden>·</span>
+          <span id="latency-chip" hidden
+                title="How far behind the live broadcast you are">Latency <strong id="latency-value">—</strong></span>
+        </div>
+
+        <!-- Shown while we catch the playhead up to the live edge, so the
+             viewer knows why playback briefly speeds up or jumps. -->
+        <span class="sync-chip" id="sync-chip" hidden aria-live="polite"
+              title="Catching up to the live broadcast">
+          <span class="sync-chip-dot" aria-hidden="true"></span>Syncing
+        </span>
+
+        <span class="quality-chip" id="quality-chip" hidden
+              title="Stream quality and bitrate">
+          <span class="quality-chip-q"   id="quality-chip-q"></span>
+          <span class="quality-chip-sep">·</span>
+          <span class="quality-chip-br"  id="quality-chip-br"></span>
+        </span>
+
+        <!-- Right-aligned control group: reaction palette + fullscreen.
+             Wrapping them keeps fullscreen pinned right even when the
+             reaction control is hidden (reactions disabled by the host). -->
+        <div class="player-controls-right">
+        <div class="reaction-control" id="reaction-control" hidden>
+          <button type="button" class="player-btn" id="reaction-btn"
+                  title="Send a reaction" aria-label="Send a reaction"
+                  aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          </button>
+          <div class="reaction-palette" id="reaction-palette" role="menu" hidden>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤣" aria-label="React laughing">🤣</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="♥️" aria-label="React heart">♥️</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🫠" aria-label="React melting">🫠</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="👍" aria-label="React thumbs up">👍</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="😍" aria-label="React loving">😍</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💩" aria-label="React poop">💩</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💀" aria-label="React skull">💀</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💦" aria-label="React sweat">💦</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🍆" aria-label="React eggplant">🍆</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤬" aria-label="React cursing">🤬</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤩" aria-label="React star struck">🤩</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🏳️‍🌈" aria-label="React pride flag">🏳️‍🌈</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="👀" aria-label="React eyes">👀</button>
+            <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="😈" aria-label="React devil">😈</button>
+          </div>
+        </div>
+
+        <button type="button" class="player-btn" id="fullscreen-btn" title="Fullscreen" aria-label="Fullscreen">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen + unpinned: invisible hot-zone at the right edge that
+         reveals the chat overlay on hover. Hidden in normal layout. -->
+    <div class="chat-edge-trigger" id="chat-edge-trigger" aria-hidden="true"></div>
+
+    <aside class="chat-panel" id="chat-panel" aria-label="Live chat">
+      <header class="chat-header">
+        <div class="chat-title">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Live chat</span>
+        </div>
+        <div class="chat-header-actions">
+          <span class="chat-count" id="chat-count" hidden>0</span>
+          <!-- Shown once joined: talk so everyone in the chat can hear you.
+               The host can mute you, after which this button locks. -->
+          <button type="button" class="chat-talk-btn" id="chat-talk-btn" hidden
+                  aria-pressed="false" title="Talk — use your microphone so everyone can hear you"
+                  aria-label="Talk using your microphone">
+            <svg class="ico-mic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+            <svg class="ico-mic-off" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+          </button>
+          <!-- Shown once joined: leave the chat and forget the saved name. -->
+          <button type="button" class="chat-leave-btn" id="chat-leave-btn" hidden
+                  title="Leave chat" aria-label="Leave chat">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+          <!-- Fullscreen only: mute chat suppresses the @mention pop-in so
+               the viewer is never interrupted by the chat. -->
+          <button type="button" class="chat-mute-btn" id="chat-mute-btn"
+                  aria-pressed="false" title="Mute chat (no @mention pop-ins)"
+                  aria-label="Mute or unmute chat notifications">
+            <svg class="ico-bell" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg class="ico-bell-off" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+          <!-- Fullscreen only: pin keeps the overlay chat open; unpinning
+               lets it auto-hide and peek in from the right edge. -->
+          <button type="button" class="chat-pin-btn" id="chat-pin-btn"
+                  aria-pressed="true" title="Unpin chat (auto-hide)"
+                  aria-label="Pin or unpin chat">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.4-3.5a2 2 0 0 1-.14-.74V6a1 1 0 0 1 1-1 1 1 0 0 0 0-2H5.54a1 1 0 0 0 0 2 1 1 0 0 1 1 1v6.76a2 2 0 0 1-.14.74z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message list — always visible so anyone can read along
+           without joining. Toggled against #chat-empty by chat.js. -->
+      <ol class="chat-messages" id="chat-messages" hidden aria-live="polite"></ol>
+
+      <!-- Empty state shown until the first message arrives. -->
+      <div class="chat-empty" id="chat-empty">
+        <div class="chat-empty-icon" aria-hidden="true">💬</div>
+        <div class="chat-empty-title">No messages yet</div>
+        <div class="chat-empty-sub">Be the first to say something.</div>
+      </div>
+
+      <!-- Compose -->
+      <!-- Reply preview — appears above compose when the user has
+           clicked the hover-reply button on a message. -->
+      <div class="chat-reply-banner" id="chat-reply-banner" hidden>
+        <div class="chat-reply-banner-body">
+          <span class="chat-reply-banner-arrow" aria-hidden="true">↳</span>
+          <span class="chat-reply-banner-text">
+            Replying to <span class="chat-reply-banner-name" id="chat-reply-banner-name"></span>:
+            <span class="chat-reply-banner-snippet" id="chat-reply-banner-snippet"></span>
+          </span>
+        </div>
+        <button type="button" class="chat-reply-banner-cancel" id="chat-reply-banner-cancel" aria-label="Cancel reply" title="Cancel reply">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- /re reply-picker key hint, shown while choosing a message. -->
+      <div class="chat-reply-hint" id="chat-reply-hint" hidden aria-live="polite">
+        <span class="chat-reply-hint-keys">↑ ↓</span> pick&nbsp;·
+        <span class="chat-reply-hint-keys">Enter</span> reply&nbsp;·
+        <span class="chat-reply-hint-keys">Esc</span> cancel
+      </div>
+
+      <!-- Join bar — shown until the viewer picks a name. Reading the
+           chat above needs no join; only sending does. -->
+      <div class="chat-join" id="chat-join">
+        <div class="chat-join-hint">💬 Join with a name to start chatting.</div>
+        <form class="chat-join-form" id="chat-join-form" novalidate>
+          <input type="text" id="chat-name-input"
+                 class="chat-name-input"
+                 placeholder="Your name"
+                 minlength="2" maxlength="24"
+                 autocomplete="off" spellcheck="false"
+                 aria-label="Display name">
+          <button type="submit" class="btn btn-primary">Join</button>
+        </form>
+        <div class="chat-error" id="chat-join-error" role="alert" hidden></div>
+      </div>
+
+      <form class="chat-compose" id="chat-compose-form" hidden>
+        <!-- Live @-mention autocomplete. JS shows / filters / arrow-
+             navigates this list while the cursor is on an @-token. -->
+        <div class="chat-mention-menu" id="chat-mention-menu" role="listbox" hidden></div>
+
+        <button type="button" class="chat-compose-me" id="chat-compose-me"
+                data-open-modal="chat-profile-modal"
+                title="Change your name & icon" aria-label="Change your name and icon"></button>
+        <input type="text" id="chat-compose-input"
+               class="chat-compose-input"
+               placeholder="Message…  ·  type /re to reply"
+               maxlength="500"
+               autocomplete="off"
+               aria-label="Type a message">
+        <button type="submit" class="chat-send-btn" aria-label="Send message" title="Send">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+
+      <!-- Disabled / banned states -->
+      <div class="chat-banner" id="chat-banner" hidden>
+        <span id="chat-banner-text"></span>
+      </div>
+    </aside>
+
+    <!-- Chat identity editor — opened by the emoji circle next to the
+         compose box. Lives inside .public-main so it's still rendered when
+         the player is fullscreened. Rename + pick an icon from the grid. -->
+    <div class="modal-root" id="chat-profile-modal" hidden aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal chat-profile-modal" role="dialog" aria-modal="true" aria-labelledby="chat-profile-title">
+        <header class="modal-header">
+          <h2 id="chat-profile-title">Your chat identity</h2>
+          <button type="button" class="icon-btn icon-btn-ghost" data-close-modal aria-label="Close" title="Close">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </header>
+        <section class="modal-body chat-profile-body">
+          <label class="chat-profile-field">
+            <span>Display name</span>
+            <input type="text" id="chat-profile-name" class="chat-name-input"
+                   minlength="2" maxlength="24" autocomplete="off" spellcheck="false"
+                   placeholder="Your name">
+          </label>
+          <div class="chat-error" id="chat-profile-error" role="alert" hidden></div>
+          <div class="chat-profile-emoji-label">Pick an icon</div>
+          <div class="chat-emoji-grid" id="chat-emoji-grid" role="listbox" aria-label="Choose an icon">
+            {% for e in chat_emojis %}
+            <button type="button" class="chat-emoji-option" role="option" data-emoji="{{ e }}" aria-label="{{ e }}">{{ e }}</button>
+            {% endfor %}
+          </div>
+        </section>
+        <footer class="modal-footer chat-profile-footer">
+          <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+          <button type="button" class="btn btn-primary" id="chat-profile-save">Save</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Unmute consent — shown when the broadcaster asks us to unmute. The
+         host can mute us, but only we can lift it: their request just opens
+         this prompt. Declining (or dismissing) keeps us muted. -->
+    <div class="modal-root" id="unmute-request-modal" hidden aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal unmute-modal" role="dialog" aria-modal="true" aria-labelledby="unmute-modal-title">
+        <header class="modal-header">
+          <h2 id="unmute-modal-title">Turn your mic back on?</h2>
+        </header>
+        <section class="modal-body">
+          <p class="unmute-modal-body">
+            The broadcaster has asked you to unmute so everyone can hear you.
+            It's up to you — your mic stays off unless you allow it.
+          </p>
+        </section>
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="unmute-decline-btn" data-close-modal>Stay muted</button>
+          <button type="button" class="btn btn-primary" id="unmute-accept-btn">Unmute my mic</button>
+        </footer>
+      </div>
+    </div>
+  </main>
+
+  <footer class="public-foot">
+    <span class="muted">{{ app_name }} · v{{ app_version }}</span>
+  </footer>
+
+  <!-- Locked-stream overlay. Full-page, login-card style. Visible on
+       initial render so nothing else paints before the viewer is
+       confirmed authorized. JS hides it once the server says either
+       "unlocked" or "auth_ok". -->
+  <div class="lock-screen" id="lock-screen">
+    <div class="lock-card">
+      <img class="lock-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="" aria-hidden="true">
+      <div class="lock-title">Protected stream</div>
+      <div class="lock-sub">Enter the 5-character code shared with you to watch.</div>
+      <form class="lock-form" id="lock-form" novalidate>
+        <input type="text" class="lock-input" id="lock-input"
+               maxlength="5" inputmode="latin"
+               autocomplete="off" autocorrect="off"
+               spellcheck="false" autocapitalize="characters"
+               placeholder="—————" aria-label="Access code">
+        <button type="submit" class="btn btn-primary btn-block">Watch stream</button>
+      </form>
+      <div class="lock-error" id="lock-error" role="alert" hidden>
+        Code incorrect — try again.
+      </div>
+
+      <div class="lock-hint">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        <span>Planning to join the voice chat? Pop on a pair of headphones — it keeps everyone's audio clear and echo-free.</span>
+      </div>
+    </div>
+
+    <!-- Pinned to the bottom of the lock screen. The normal page footer
+         is pulled out of the layout while .locked is on, so version +
+         admin sign-in live here instead. -->
+    <div class="lock-foot">
+      {% if current_user.is_authenticated %}
+        <a class="lock-foot-link" href="{{ url_for('admin.dashboard') }}">Admin dashboard</a>
+      {% else %}
+        <a class="lock-foot-link" href="{{ url_for('auth.login') }}">Admin sign in</a>
+      {% endif %}
+      <span class="lock-foot-sep" aria-hidden="true">·</span>
+      <span class="lock-foot-version">{{ app_name }} v{{ app_version }}</span>
+    </div>
+  </div>
+
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/browser-warning.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/socket.js') }}"></script>
+  <!-- Now Showing modal — populated by info.js, opened via the
+       header button using the shared modal.js machinery. -->
+  <div class="modal-root info-modal-root" id="info-modal" hidden aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal info-modal" role="dialog" aria-modal="true" aria-labelledby="info-modal-title">
+      <button type="button" class="info-modal-close icon-btn icon-btn-ghost"
+              data-close-modal aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="info-modal-grid">
+        <div class="info-poster">
+          <img id="info-modal-poster" alt="" hidden>
+          <div class="info-poster-placeholder" id="info-modal-poster-empty">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+        </div>
+        <div class="info-body">
+          <div class="info-eyebrow">Now showing</div>
+          <h2 id="info-modal-title" class="info-title">—</h2>
+          <p id="info-modal-desc" class="info-desc"></p>
+          <div class="info-links">
+            <a id="info-modal-imdb" class="info-link" href="#" target="_blank" rel="noopener" hidden>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>View on IMDB</span>
+            </a>
+            <a id="info-modal-trailer" class="info-link info-link--accent" href="#" target="_blank" rel="noopener" hidden>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Watch trailer</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/modal.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/stream-viewer.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/chat-emoji-data.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/chat.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/talk.js') }}"></script>
+  <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/info.js') }}"></script>
+</body>
+</html>

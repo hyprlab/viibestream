@@ -1,0 +1,650 @@
+{% extends "base_admin.html" %}
+{% block title %}Stream — {{ app_name }}{% endblock %}
+{% block heading %}Stream{% endblock %}
+
+{% block top_actions %}
+  <span class="status-chip" id="ws-status" data-state="connecting">Connecting…</span>
+{% endblock %}
+
+{% block content %}
+<div class="stream-grid">
+  <div class="stream-main">
+  <section class="card card--video">
+    <div class="card-header">
+      <h2>Stream Preview</h2>
+      <div class="card-header-meta">
+        <span class="meta-stat"><span class="meta-k">Codec</span> <strong id="codec-out">—</strong></span>
+        <span class="dot-sep">·</span>
+        <span class="meta-stat"><strong id="bytes-out">0 B</strong> <span class="meta-k">sent</span></span>
+        <span class="dot-sep">·</span>
+        <span class="meta-stat"><strong id="elapsed-out">00:00</strong></span>
+        <span class="dot-sep">·</span>
+        <span class="live-dot" id="live-dot"></span>
+        <span id="live-label">Offline</span>
+        <span class="dot-sep">·</span>
+        <span><strong id="viewer-count">0</strong> watching</span>
+      </div>
+    </div>
+
+    <div class="video-wrap">
+      <video id="preview" autoplay muted playsinline></video>
+      <div class="video-overlay" id="preview-overlay">
+        <div class="overlay-msg">
+          <div class="overlay-eyebrow">No source</div>
+          <div class="overlay-line">Choose a camera and microphone, then start the preview.</div>
+        </div>
+      </div>
+      <div class="video-paused-overlay" id="file-paused-overlay" hidden>
+        <svg viewBox="0 0 24 24" width="72" height="72" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="11" stroke-width="1"/>
+          <rect x="9" y="8" width="2.25" height="8" rx="0.5"/>
+          <rect x="12.75" y="8" width="2.25" height="8" rx="0.5"/>
+        </svg>
+        <div class="paused-label">Paused</div>
+      </div>
+
+      <!-- Floating emoji reactions rain down over the preview here, mirroring
+           the viewer player so the host sees viewer reactions live. -->
+      <div class="video-reactions" id="video-reactions" aria-hidden="true"></div>
+      <!-- Transient "who reacted" pill — slides in/out at the top center. -->
+      <div class="reaction-sender" id="reaction-sender" aria-hidden="true"></div>
+
+      <!-- Mirror of the viewer alert banner so the host sees what's live. -->
+      <div class="video-alert" id="video-alert" role="status" aria-live="polite">
+        <svg class="video-alert-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+        <span class="video-alert-text" id="video-alert-text"></span>
+      </div>
+    </div>
+
+    <div class="stream-controls">
+      <button type="button" class="btn btn-ghost" id="preview-btn">Start preview</button>
+      <button type="button" class="btn btn-ghost" id="stop-preview-btn" hidden>Stop preview</button>
+
+      <!-- Merged Start Stream / Stop Stream. Class + label toggle in JS. -->
+      <button type="button" class="btn btn-primary btn-live" id="live-btn" disabled>
+        <span class="live-btn-dot" aria-hidden="true"></span>
+        <span class="live-btn-label">Start Stream</span>
+      </button>
+
+      <button type="button" class="btn-toggle" id="toggle-mic-btn"
+              title="Mute microphone" aria-pressed="false" aria-label="Mute microphone" disabled>
+        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V4a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <span class="btn-toggle-text" hidden>Mute</span>
+      </button>
+
+      <button type="button" class="btn-toggle" id="toggle-cam-btn"
+              title="Disable camera" aria-pressed="false" aria-label="Disable camera" disabled>
+        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <span class="btn-toggle-text" hidden>Blank File Stream</span>
+      </button>
+
+      <!-- Send a reaction from the backend (rains over the preview + every
+           viewer). Hidden when the broadcaster disables reactions. -->
+      <div class="reaction-control" id="reaction-control" hidden>
+        <button type="button" class="btn-toggle" id="reaction-btn"
+                title="Send a reaction" aria-label="Send a reaction"
+                aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        </button>
+        <div class="reaction-palette" id="reaction-palette" role="menu" hidden>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤣" aria-label="React laughing">🤣</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="♥️" aria-label="React heart">♥️</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🫠" aria-label="React melting">🫠</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="👍" aria-label="React thumbs up">👍</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="😍" aria-label="React loving">😍</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💩" aria-label="React poop">💩</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💀" aria-label="React skull">💀</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="💦" aria-label="React sweat">💦</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🍆" aria-label="React eggplant">🍆</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤬" aria-label="React cursing">🤬</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤩" aria-label="React star struck">🤩</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🏳️‍🌈" aria-label="React pride flag">🏳️‍🌈</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="👀" aria-label="React eyes">👀</button>
+          <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="😈" aria-label="React devil">😈</button>
+        </div>
+      </div>
+
+      <!-- Talk-over microphone — only shown when broadcasting a video
+           file. Lets the admin mix their mic into the file's audio.
+           Audio-only: no camera, no canvas (so no framerate cost). -->
+      <button type="button" class="btn-toggle" id="talk-mic-btn" hidden
+              title="Talk over file (unmute mic)" aria-pressed="false"
+              aria-label="Talk over file (unmute mic)" disabled>
+        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V4a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+
+      <!-- Local monitor mute — silences the file's audio on THIS device
+           only (viewers still hear it). File mode only. -->
+      <button type="button" class="btn-toggle" id="monitor-mute-btn" hidden
+              title="Mute file audio on this device (viewers still hear it)"
+              aria-pressed="false" aria-label="Mute file audio on this device" disabled>
+        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+
+      <!-- Video-file timeline scrubber for the loaded file, shown under the
+           preview. Play/pause is the primary button. Greyed until a file
+           is loaded. -->
+      <div class="file-transport-row file-transport-controls" id="file-transport">
+        <input type="range" id="file-seek" class="slider file-seek" min="0" max="1000" step="1" value="0" disabled>
+        <span id="file-time" class="file-time">0:00 / 0:00</span>
+      </div>
+
+      {% if current_user.is_admin() %}
+      <!-- Admin session control, pinned to the far right of the row.
+           End Stream Session stops the broadcast and clears the chat. -->
+      <div class="admin-session-actions">
+        <button type="button" class="btn btn-force-end" id="kick-btn"
+                title="End the current stream session">End Stream Session</button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Source / encoding / session settings — merged in from the old
+         Source side panel, laid out as auto-fitting columns. -->
+    <div class="stream-settings">
+      <div class="settings-block">
+        <h3>Source</h3>
+        <div class="source-tabs" role="tablist">
+          <button type="button" class="source-tab" role="tab"
+                  data-source-tab="camera" aria-selected="false">Camera</button>
+          <button type="button" class="source-tab is-active" role="tab"
+                  data-source-tab="file" aria-selected="true">Video file</button>
+        </div>
+
+        <div class="field-group" data-source-panel="camera" hidden>
+          <label>
+            <span>Camera</span>
+            <select id="camera-select" disabled>
+              <option value="">Default camera (start preview to list)</option>
+            </select>
+          </label>
+          <label>
+            <span>Microphone</span>
+            <select id="mic-select" disabled>
+              <option value="">Default microphone (start preview to list)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field-group" data-source-panel="file">
+          <label class="file-picker">
+            <span class="file-picker-label">Video file</span>
+            <input type="file" id="file-input" accept="video/*" class="file-picker-input">
+            <span class="file-picker-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span id="file-picker-text">Choose file…</span>
+            </span>
+            <span class="file-hint file-resume-hint" id="file-resume-hint" hidden></span>
+            <span class="muted file-hint">MP4 / WebM plays directly. MKV / AVI / WMV are transcoded locally with ffmpeg.wasm (up to ~1.5&nbsp;GB — bigger files need to be re-encoded on the command line first). Either way, the file never leaves your browser.</span>
+          </label>
+
+          <div class="file-transcoding" id="file-transcoding" hidden>
+            <div class="file-transcoding-row">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="file-transcoding-label">Transcoding…</span>
+              <span class="file-transcoding-pct" id="file-transcoding-pct">0%</span>
+            </div>
+            <div class="file-transcoding-track">
+              <div class="file-transcoding-bar" id="file-transcoding-bar"></div>
+            </div>
+            <div class="muted file-hint">
+              Your browser can't play this format directly. Re-encoding to MP4 in-browser — nothing is uploaded.
+            </div>
+          </div>
+
+          <label class="checkbox checkbox-tight file-loop-field">
+            <input type="checkbox" id="file-loop" checked>
+            <span>Loop when the file ends</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-block">
+        <h3>Encoding</h3>
+        <div class="field-group">
+          <label>
+            <span>Quality</span>
+            <select id="quality-select" disabled>
+              <option value="1080">1080p (Full HD)</option>
+              <option value="720" selected>720p (HD)</option>
+              <option value="480">480p</option>
+              <option value="360">360p</option>
+            </select>
+          </label>
+          <label>
+            <span>Frame rate</span>
+            <select id="fps-select" disabled>
+              <option value="30" selected>30 fps</option>
+              <option value="60">60 fps</option>
+              <option value="24">24 fps</option>
+            </select>
+          </label>
+          <label class="bitrate-field">
+            <span class="bitrate-header">
+              <span>Video bitrate</span>
+              <output id="bitrate-out">2.5 Mbps</output>
+            </span>
+            <input type="range" id="bitrate-slider" class="slider"
+                   min="300" max="20000" step="100" value="2500">
+            <span class="bitrate-scale" aria-hidden="true">
+              <span>0.3</span><span>5</span><span>10</span><span>15</span><span>20 Mbps</span>
+            </span>
+          </label>
+          <label class="checkbox checkbox-tight">
+            <input type="checkbox" id="bitrate-auto" checked>
+            <span>Auto bitrate (match resolution &amp; fps)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-block">
+        <h3>Access</h3>
+        <div class="field-group">
+          <label class="switch-row">
+            <input type="checkbox" id="lock-toggle" class="switch-input">
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span class="switch-label">Require code to watch</span>
+          </label>
+
+          <div class="lock-code-row">
+            <div class="lock-code-field">
+              <input type="text" id="lock-code" class="lock-code"
+                     maxlength="5" inputmode="latin"
+                     autocomplete="off" autocorrect="off"
+                     spellcheck="false" autocapitalize="characters"
+                     placeholder="—————"
+                     aria-label="Access code (click to copy)">
+              <span class="lock-tip" id="lock-tip" aria-hidden="true">Click to copy</span>
+            </div>
+            <button type="button" class="btn-icon" id="lock-randomize"
+                    title="Generate a new code" aria-label="Generate a new code">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+          <span class="muted file-hint">
+            5 characters. Viewers see a locked screen until they enter it.
+            Toggling the lock or rotating the code kicks current viewers
+            back to the lock screen.
+          </span>
+        </div>
+      </div>
+
+      <!-- Alert banner + Reactions share one column, stacked. -->
+      <div class="settings-col">
+        <div class="settings-block">
+          <h3>Alert banner</h3>
+          <div class="field-group">
+            <textarea id="alert-input" class="alert-input" rows="2" maxlength="300"
+                      placeholder="Type an alert to drop down over the viewers' video…"></textarea>
+            <div class="alert-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="alert-show-btn">Show alert</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="alert-clear-btn" hidden>Take down</button>
+              <span class="alert-status" id="alert-status" hidden>Banner is live</span>
+            </div>
+            <span class="muted file-hint">
+              Drops a banner down at the top of every viewer's video and keeps
+              it up until you take it down.
+            </span>
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <h3>Reactions</h3>
+          <div class="field-group">
+            <label class="switch-row">
+              <input type="checkbox" id="reactions-toggle" class="switch-input" checked>
+              <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+              <span class="switch-label">Allow viewer reactions</span>
+            </label>
+            <span class="muted file-hint">
+              Viewers can rain emoji reactions down over the video. Turn this
+              off to hide the reaction button for everyone.
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+<!-- Now Showing — full-width card under the stream grid, styled to
+     match the other cards on this page. -->
+<section class="card info-card">
+  <div class="card-header">
+    <h2>Now Showing</h2>
+    <span class="card-header-meta muted">
+      Push poster + metadata to viewers in real time
+    </span>
+  </div>
+
+  <form id="info-form" class="info-form stacked-form" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="info-form-grid">
+      <div class="info-form-poster">
+        <div class="poster-preview" id="info-poster-preview" aria-hidden="true">
+          <img id="info-poster-img" alt="" hidden>
+          <div class="poster-placeholder" id="info-poster-placeholder">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>No poster yet</span>
+          </div>
+        </div>
+        <div class="poster-actions">
+          <label class="btn btn-ghost btn-sm poster-pick-btn">
+            <input type="file" name="poster" id="info-poster-file"
+                   accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Choose poster
+          </label>
+          <button type="button" class="btn btn-ghost btn-sm" id="info-poster-clear" hidden>
+            Remove poster
+          </button>
+          <span class="muted file-hint">
+            JPEG&nbsp;·&nbsp;PNG&nbsp;·&nbsp;WebP&nbsp;·&nbsp;GIF, up to 4&nbsp;MB. 2:3 aspect ratio looks best.
+          </span>
+        </div>
+      </div>
+
+      <div class="info-form-fields">
+        <label>
+          <span>Title</span>
+          <input type="text" name="title" id="info-title-input"
+                 maxlength="200" autocomplete="off"
+                 placeholder="e.g. The Grand Budapest Hotel (2014)">
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea name="description" id="info-desc-input"
+                    rows="4" maxlength="2000"
+                    placeholder="A few sentences describing what you're playing tonight…"></textarea>
+        </label>
+        <div class="info-form-urls">
+          <label>
+            <span>IMDB / reference URL</span>
+            <input type="url" name="imdb_url" id="info-imdb-input"
+                   maxlength="500" autocomplete="off"
+                   placeholder="https://www.imdb.com/title/tt2278388/">
+          </label>
+          <label>
+            <span>Trailer URL</span>
+            <input type="url" name="trailer_url" id="info-trailer-input"
+                   maxlength="500" autocomplete="off"
+                   placeholder="https://www.youtube.com/watch?v=…">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-form-footer">
+      <span class="info-form-status" id="info-form-status" aria-live="polite"></span>
+      <button type="button" class="btn btn-ghost" data-open-modal="library-modal">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Library
+      </button>
+      <button type="button" class="btn btn-ghost" id="info-save-to-library-btn">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span id="info-save-to-library-label">Save to Library</span>
+      </button>
+      <button type="button" class="btn btn-ghost btn-clear-showing" id="info-clear-btn"
+              title="Remove the Now Showing for viewers">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        Clear Now Showing
+      </button>
+      <button type="submit" class="btn btn-primary" id="info-save-btn" disabled>Published</button>
+    </div>
+  </form>
+</section>
+  </div>
+  <!-- Live chat — fixed sidebar to the right of the Source panel. Uses
+       the same chat client (chat.js) and component styles (chat.css) as
+       the public viewer, on its own Socket.IO connection. The admin
+       joins as a normal participant; their name is prefilled with their
+       login but stays editable. -->
+  <div class="stream-side">
+  <!-- Participants panel — a live roster of everyone in the chat with a
+       per-person mute/unmute. A speaking participant's row highlights so
+       the broadcaster can see at a glance who's talking. Driven by
+       participants.js off the same chat:roster + talk:* events. -->
+  <aside class="participants-panel" id="participants-panel" aria-label="Participants">
+    <header class="participants-header">
+      <div class="participants-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Participants</span>
+      </div>
+      <span class="participants-count" id="participants-count">0</span>
+    </header>
+    <!-- Host controls. Mute all + Ask to unmute are separate actions; the
+         host can mute everyone, then later invite them all back (each viewer
+         still consents). Audio off turns the whole talk feature off
+         (everyone greyed out, unclickable). -->
+    <div class="participants-tools">
+      <button type="button" class="participants-tool-btn participants-muteall" id="participants-muteall"
+              title="Mute every participant">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <span>Mute all</span>
+      </button>
+      <button type="button" class="participants-tool-btn participants-askunmute" id="participants-askunmute"
+              title="Ask every muted participant to unmute (each must accept)">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <span>Ask to unmute</span>
+      </button>
+      <button type="button" class="participants-tool-btn participants-audio-toggle" id="participants-audio-toggle"
+              data-state="on" aria-pressed="false"
+              title="Turn off participant audio — no one can talk or unmute">
+        <svg class="ico-on" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <svg class="ico-off" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <span class="participants-audio-label">Audio on</span>
+      </button>
+    </div>
+    <div class="participants-list" id="participants-list" aria-live="polite"></div>
+    <div class="participants-empty" id="participants-empty">No one has joined live chat yet.</div>
+  </aside>
+
+  <aside class="chat-panel card--chat" id="chat-panel" aria-label="Live chat"
+         data-autojoin="{{ current_user.username }}">
+    <header class="chat-header">
+      <div class="chat-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>Live chat</span>
+      </div>
+      <div class="chat-header-actions">
+        <span class="chat-count" id="chat-count" hidden>0</span>
+        <!-- Gear → chat moderation modal (toggle + roster / IP bans). -->
+        <button type="button" class="icon-btn icon-btn-ghost chat-gear"
+                data-open-modal="chat-mod-modal"
+                title="Chat moderation" aria-label="Chat moderation">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <ol class="chat-messages" id="chat-messages" hidden aria-live="polite"></ol>
+
+    <div class="chat-empty" id="chat-empty">
+      <div class="chat-empty-icon" aria-hidden="true">💬</div>
+      <div class="chat-empty-title">No messages yet</div>
+      <div class="chat-empty-sub">Join in to talk with your viewers.</div>
+    </div>
+
+    <div class="chat-reply-banner" id="chat-reply-banner" hidden>
+      <div class="chat-reply-banner-body">
+        <span class="chat-reply-banner-arrow" aria-hidden="true">↳</span>
+        <span class="chat-reply-banner-text">
+          Replying to <span class="chat-reply-banner-name" id="chat-reply-banner-name"></span>:
+          <span class="chat-reply-banner-snippet" id="chat-reply-banner-snippet"></span>
+        </span>
+      </div>
+      <button type="button" class="chat-reply-banner-cancel" id="chat-reply-banner-cancel" aria-label="Cancel reply" title="Cancel reply">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- /re reply-picker key hint, shown while choosing a message. -->
+    <div class="chat-reply-hint" id="chat-reply-hint" hidden aria-live="polite">
+      <span class="chat-reply-hint-keys">↑ ↓</span> pick&nbsp;·
+      <span class="chat-reply-hint-keys">Enter</span> reply&nbsp;·
+      <span class="chat-reply-hint-keys">Esc</span> cancel
+    </div>
+
+    <!-- Join bar — name prefilled with the admin's login, still editable. -->
+    <div class="chat-join" id="chat-join">
+      <div class="chat-join-hint">💬 Join as <strong>{{ current_user.username }}</strong> — or change the name below.</div>
+      <form class="chat-join-form" id="chat-join-form" novalidate>
+        <input type="text" id="chat-name-input"
+               class="chat-name-input"
+               value="{{ current_user.username }}"
+               placeholder="Your name"
+               minlength="2" maxlength="24"
+               autocomplete="off" spellcheck="false"
+               aria-label="Display name">
+        <button type="submit" class="btn btn-primary">Join</button>
+      </form>
+      <div class="chat-error" id="chat-join-error" role="alert" hidden></div>
+    </div>
+
+    <form class="chat-compose" id="chat-compose-form" hidden>
+      <div class="chat-mention-menu" id="chat-mention-menu" role="listbox" hidden></div>
+      <button type="button" class="chat-compose-me" id="chat-compose-me"
+              data-open-modal="chat-profile-modal"
+              title="Change your name & icon" aria-label="Change your name and icon"></button>
+      <input type="text" id="chat-compose-input"
+             class="chat-compose-input"
+             placeholder="Message…  ·  type /re to reply"
+             maxlength="500"
+             autocomplete="off"
+             aria-label="Type a message">
+      <button type="submit" class="chat-send-btn" aria-label="Send message" title="Send">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </form>
+
+    <div class="chat-banner" id="chat-banner" hidden>
+      <span id="chat-banner-text"></span>
+    </div>
+  </aside>
+  </div>
+</div>
+
+<!-- Saved-showings library modal: list of presets with poster
+     thumbnails, Load (push to live state) and Delete actions, plus
+     a "Save current" button that posts the form contents as a new
+     preset without publishing them to viewers. -->
+<div class="modal-root" id="library-modal" hidden aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal library-modal" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
+    <header class="modal-header">
+      <h2 id="library-modal-title">Saved showings</h2>
+      <button type="button" class="icon-btn icon-btn-ghost" data-close-modal aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <section class="modal-body library-body">
+      <div class="library-toolbar">
+        <span class="muted">Save the current Now-Showing values as a reusable preset.</span>
+        <button type="button" class="btn btn-primary btn-sm" id="library-save-current">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save current
+        </button>
+      </div>
+      <ul class="library-list" id="library-list" aria-live="polite"></ul>
+      <div class="library-empty" id="library-empty" hidden>
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <div>No saved showings yet.</div>
+        <span class="muted">Fill in the form, then click "Save current" to keep it for next time.</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Chat moderation modal — opened by the gear icon in the chat header.
+     Holds the "allow viewers to chat" toggle and the live roster, where
+     removing someone bans their IP for the rest of the stream. IDs match
+     what stream-broadcaster.js wires up. -->
+<div class="modal-root" id="chat-mod-modal" hidden aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="chat-mod-modal-title">
+    <header class="modal-header">
+      <h2 id="chat-mod-modal-title">Chat moderation</h2>
+      <button type="button" class="icon-btn icon-btn-ghost" data-close-modal aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <section class="modal-body">
+      <label class="switch-row">
+        <input type="checkbox" id="chat-mod-toggle" class="switch-input" checked>
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+        <span class="switch-label">Allow viewers to chat</span>
+      </label>
+
+      <div class="chat-mod-subhead">
+        <span>In chat &amp; banned IPs</span>
+        <span class="card-subheader-meta"><strong id="chat-mod-count">0</strong>&nbsp;in&nbsp;chat</span>
+      </div>
+
+      <div class="chat-roster" id="chat-mod-roster">
+        <div class="chat-roster-empty" id="chat-mod-empty">
+          No one has joined yet.
+        </div>
+      </div>
+
+      <span class="muted file-hint">
+        Removing a viewer bans their IP for the rest of this stream.
+        Bans clear automatically when the broadcast stops.
+      </span>
+    </section>
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-danger-ghost" id="chat-mod-clear">
+        Clear chat
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- Chat identity editor — opened by the emoji circle next to the compose
+     box. Rename + pick an icon from the scrollable grid. -->
+<div class="modal-root" id="chat-profile-modal" hidden aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal chat-profile-modal" role="dialog" aria-modal="true" aria-labelledby="chat-profile-title">
+    <header class="modal-header">
+      <h2 id="chat-profile-title">Your chat identity</h2>
+      <button type="button" class="icon-btn icon-btn-ghost" data-close-modal aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </header>
+    <section class="modal-body chat-profile-body">
+      <label class="chat-profile-field">
+        <span>Display name</span>
+        <input type="text" id="chat-profile-name" class="chat-name-input"
+               minlength="2" maxlength="24" autocomplete="off" spellcheck="false"
+               placeholder="Your name">
+      </label>
+      <div class="chat-error" id="chat-profile-error" role="alert" hidden></div>
+      <div class="chat-profile-emoji-label">Pick an icon</div>
+      <div class="chat-emoji-grid" id="chat-emoji-grid" role="listbox" aria-label="Choose an icon">
+        {% for e in chat_emojis %}
+        <button type="button" class="chat-emoji-option" role="option" data-emoji="{{ e }}" aria-label="{{ e }}">{{ e }}</button>
+        {% endfor %}
+      </div>
+    </section>
+    <footer class="modal-footer chat-profile-footer">
+      <button type="button" class="btn btn-ghost" data-close-modal>Cancel</button>
+      <button type="button" class="btn btn-primary" id="chat-profile-save">Save</button>
+    </footer>
+  </div>
+</div>
+
+<noscript><p class="muted">JavaScript is required to broadcast.</p></noscript>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/socket.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/transcode.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/stream-broadcaster.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/chat-emoji-data.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/talk.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/participants.js') }}"></script>
+{% endblock %}

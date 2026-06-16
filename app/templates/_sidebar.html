@@ -1,0 +1,67 @@
+<aside class="sidebar" aria-label="Admin navigation">
+  <!-- Header: app brand (fixed) -->
+  <div class="brand">
+    <img class="brand-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="" aria-hidden="true">
+    <div class="brand-text">
+      <div class="brand-title">{{ app_name }}</div>
+      <div class="brand-sub">Admin</div>
+    </div>
+  </div>
+
+  <!-- Middle: scrollable nav (controls, links, etc.) -->
+  <nav id="sidebar-nav" aria-label="Sections">
+    <a href="{{ url_for('admin.dashboard') }}"
+       class="{% if page == 'dashboard' %}active{% endif %}">
+      <span class="nav-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      </span>
+      <span>Dashboard</span>
+    </a>
+
+    {% if current_user.has_permission('stream.broadcast') %}
+    <a href="{{ url_for('admin.stream') }}"
+       class="{% if page == 'stream' %}active{% endif %}">
+      <span class="nav-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </span>
+      <span>Stream</span>
+      <span class="live-dot{% if broadcast and broadcast.live %} is-live{% endif %}"
+            title="{{ 'Live now' if broadcast and broadcast.live else 'Offline' }}"></span>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('main.viewer') }}" target="_blank" rel="noopener" class="sidebar-action">
+      <span class="nav-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </span>
+      <span>View public page</span>
+    </a>
+  </nav>
+
+  <!-- Footer: user chip + actions (fixed) -->
+  <div class="sidebar-footer">
+    <div class="brand-version">v{{ app_version }}</div>
+
+    <div class="user-chip" title="{{ current_user.username }}">
+      <div class="avatar">{{ current_user.username[:1].upper() }}</div>
+      <div class="user-chip-name">
+        <div class="u-name">{{ current_user.username }}</div>
+        <div class="u-role">{{ current_user.role.value }}</div>
+      </div>
+      <button type="button" class="icon-btn icon-btn-inline"
+              data-open-modal="settings-modal"
+              title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+
+    <div class="footer-actions">
+      <form action="{{ url_for('auth.logout') }}" method="post" class="logout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="icon-btn" title="Sign out" aria-label="Sign out">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</aside>
