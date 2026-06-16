@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>403 — {{ app_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head><body class="auth"><main class="auth-shell"><div class="auth-card">
+<h1>Not allowed</h1><p class="muted">You don't have permission to access this page.</p>
+<p><a class="btn btn-ghost" href="{{ url_for('main.viewer') }}">Back to viewer</a></p>
+</div></main></body></html>

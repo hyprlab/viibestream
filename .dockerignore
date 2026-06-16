@@ -1,0 +1,36 @@
+# VCS / tooling
+.git
+.gitignore
+.github
+.claude
+CLAUDE.md
+CLAUDE.local.md
+
+# Secrets / local state
+.env
+.env.*
+!.env.example
+*.bak
+instance/
+*.db
+*.sqlite*
+temp/
+
+# Python / dev
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache/
+tests/
+requirements-dev.txt
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+*.log
+
+# Docs not needed at runtime (RELEASE_NOTES.md + CHANGELOG.md ARE kept —
+# app/about_docs.py reads them at runtime to render the About page)
+README.md

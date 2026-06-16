@@ -1,0 +1,1904 @@
+/* ============================================================================
+   Viibestream — admin.css
+   Layout: sidebar + main. Modeled on the tspro three-zone sidebar.
+   ========================================================================= */
+
+body.admin {
+  min-height: 100dvh;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100dvh;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.125rem 0.875rem;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+}
+.sidebar > .brand          { flex: 0 0 auto; }
+.sidebar > .sidebar-footer { flex: 0 0 auto; }
+.sidebar > nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.75rem;
+}
+.sidebar > nav::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.brand {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.25rem 0.375rem 0.875rem;
+}
+.brand-logo {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  object-fit: contain;
+  display: block;
+}
+/* Larger variant used on the login screen */
+.brand-logo--lg {
+  width: 4rem;
+  height: 4rem;
+}
+.brand-text { line-height: 1.15; }
+.brand-title { font-weight: 700; font-size: 0.9375rem; }
+.brand-sub   { font-weight: 600; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+.sidebar nav a,
+.sidebar nav button.sidebar-action {
+  position: relative;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5625rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  cursor: pointer;
+  text-decoration: none;
+}
+.sidebar nav a:hover,
+.sidebar nav button.sidebar-action:hover {
+  background: var(--panel-2);
+  text-decoration: none;
+}
+.sidebar nav a.active {
+  background: var(--nav-active-bg);
+  color: var(--nav-active-fg);
+}
+.sidebar nav a.sidebar-action,
+.sidebar nav button.sidebar-action {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.sidebar nav a.sidebar-action:hover,
+.sidebar nav button.sidebar-action:hover { color: var(--text); }
+
+.nav-ico { display: inline-flex; flex: 0 0 auto; width: 1.125rem; height: 1.125rem; align-items: center; justify-content: center; }
+.nav-ico svg { width: 1.125rem; height: 1.125rem; }
+
+.sidebar nav .live-dot { margin-left: auto; }
+
+.sidebar-nav-divider {
+  margin: 0.5rem 0.375rem 0.125rem;
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.sidebar-nav-divider span { padding: 0.25rem 0; }
+
+/* ── Sidebar footer (fixed) ─────────────────────────────────────────────── */
+.sidebar-footer {
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.brand-version {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 0.625rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 0.375rem;
+}
+.user-chip {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.375rem 0.25rem;
+  min-width: 0;
+}
+.avatar {
+  width: 2.125rem; height: 2.125rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: var(--brand-fg);
+  display: grid; place-items: center;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  flex: 0 0 auto;
+}
+.avatar-sm { width: 1.75rem; height: 1.75rem; font-size: 0.75rem; }
+.user-chip-name { min-width: 0; flex: 1 1 auto; }
+.u-name { font-weight: 600; font-size: 0.84375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.u-role { font-size: 0.71875rem; color: var(--muted); text-transform: capitalize; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.footer-actions { display: flex; gap: 0.375rem; margin-top: 0.625rem; }
+.footer-actions > .icon-btn,
+.footer-actions .logout-form { flex: 1; }
+.logout-form { display: contents; }
+.footer-actions .icon-btn { flex: 1; width: auto; height: 2.125rem; }
+
+/* ── Main content ───────────────────────────────────────────────────────── */
+.content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  position: sticky; top: 0; z-index: 10;
+  min-height: 3.5rem;
+}
+.topbar h1 { flex: 1; font-size: 1.125rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-actions { display: flex; align-items: center; gap: 0.5rem; }
+.menu-btn {
+  display: none;
+  background: transparent;
+  border: 0;
+  width: 2.25rem; height: 2.25rem;
+  color: var(--text);
+  cursor: pointer;
+  place-items: center;
+  border-radius: var(--radius-sm);
+}
+.menu-btn:hover { background: var(--panel-2); }
+
+.page {
+  flex: 1 1 auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;             /* vertical gap between top-level cards */
+}
+
+/* ── Stream page ────────────────────────────────────────────────────────── */
+.stream-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28rem;
+  gap: 1.5rem;             /* horizontal gap between the preview + chat */
+  align-items: start;      /* let the chat column be shorter & stick */
+}
+/* Left column: the preview card + the Now Showing card stacked. Keeping
+   Now Showing inside this column (rather than full-width below the grid)
+   means it sits under the preview at the preview's width, and the chat
+   column spans the full height so it can stick while the page scrolls. */
+.stream-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.card--video { display: flex; flex-direction: column; gap: 0.875rem; }
+.card--sidecar { display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Merged source/encoding/session settings, beneath the preview controls.
+   Auto-fitting columns so they use the now-wide preview card. */
+.stream-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1.25rem 1.5rem;
+  margin-top: 0.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+.settings-block { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+/* Stacks multiple settings-blocks within a single grid column. */
+.settings-col { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.settings-block > h3 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Admin session controls, pinned to the far right of the controls row. */
+.admin-session-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+/* End Stream Session — semi-transparent red until hovered, then bright red. */
+.btn-force-end {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+  color: var(--danger);
+}
+.btn-force-end:hover,
+.btn-force-end:focus-visible {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+/* Chat header: count + moderation gear grouped on the right. */
+.chat-header-actions { display: inline-flex; align-items: center; gap: 0.5rem; }
+.chat-gear { width: 1.875rem; height: 1.875rem; flex: 0 0 auto; }
+
+/* Subheader row inside the chat-moderation modal. */
+.chat-mod-subhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+/* Breathing room inside the chat-moderation modal: 1rem above the roster
+   and above the closing hint text. */
+#chat-mod-roster { margin-top: 1rem; }
+#chat-mod-modal .file-hint { display: block; margin-top: 1rem; }
+
+/* Chat: a fixed sidebar to the right of the Source panel. Sticks below
+   the topbar and keeps its own height so the message list scrolls
+   internally while the rest of the page scrolls behind it. */
+.card--chat {
+  align-self: start;
+  position: sticky;
+  top: 5rem;                       /* clear the sticky topbar (~3.5rem) + gap */
+  height: calc(100dvh - 6.5rem);
+  min-width: 28rem;
+}
+
+/* Right column wrapper: the participants panel stacked above the chat. The
+   wrapper takes over the sticky/full-height behaviour the chat card had on
+   its own, then hands the chat the remaining space below the roster. */
+.stream-side {
+  align-self: start;
+  position: sticky;
+  top: 5rem;
+  height: calc(100dvh - 6.5rem);
+  min-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 0;
+}
+.stream-side .card--chat {
+  position: static;
+  top: auto;
+  height: auto;
+  min-width: 0;
+  /* The base .card--chat sets align-self: start — fine as a grid item, but
+     as a flex-column child here it pins the cross (horizontal) axis and
+     stops the panel filling the column. Stretch it back to full width. */
+  align-self: stretch;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 16rem;
+}
+
+/* ── Participants panel ─────────────────────────────────────────────────── */
+.participants-panel {
+  flex: 0 0 auto;
+  max-height: 19rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.participants-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--nav-active-fg) 7%, var(--panel)),
+    var(--panel));
+}
+.participants-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: 0.02em;
+}
+.participants-title svg { color: var(--brand); }
+/* Tools row under the header: Mute all + Audio on/off. */
+.participants-tools {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+  flex: 0 0 auto;
+}
+.participants-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3125rem;
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.3125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.participants-tool-btn svg { flex: 0 0 auto; }
+.participants-tool-btn:hover { color: var(--text-strong); }
+.participants-tool-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Distinct accents so the two actions read at a glance: Mute all = red,
+   Ask to unmute = green. */
+.participants-muteall:not(:disabled):hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.participants-askunmute:not(:disabled):hover {
+  color: var(--success, #22c55e);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 40%, var(--border));
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+}
+/* Audio master: green when on, grey when off (mirrors the viewer's grey). */
+.participants-audio-toggle[data-state="on"] {
+  color: var(--success, #22c55e);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 40%, var(--border));
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+}
+.participants-audio-toggle[data-state="off"] {
+  color: var(--muted);
+  border-color: var(--border);
+  background: var(--panel-2);
+}
+.participants-audio-toggle .ico-off { display: none; }
+.participants-audio-toggle[data-state="off"] .ico-on { display: none; }
+.participants-audio-toggle[data-state="off"] .ico-off { display: inline-flex; }
+.participants-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.0625rem 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.participants-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.participants-list::-webkit-scrollbar { width: 0.3125rem; }
+.participants-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.participants-empty {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0.75rem;
+}
+.participants-empty[hidden] { display: none; }
+.participants-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+  /* Smooth the highlight as it pops on/off while someone talks. */
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+/* Speaking highlight: the broadcaster can instantly tell who's talking. */
+.participants-row.is-speaking {
+  border-color: color-mix(in srgb, var(--success, #22c55e) 60%, var(--border));
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, var(--panel-2));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--success, #22c55e) 35%, transparent);
+}
+.participants-row.is-speaking .participants-name {
+  text-shadow: 0 0 0.5rem color-mix(in srgb, var(--success, #22c55e) 45%, transparent);
+}
+.participants-emoji {
+  width: 1.625rem;
+  height: 1.625rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+  flex: 0 0 auto;
+  line-height: 1;
+  position: relative;
+}
+/* A small pulsing ring on the avatar while speaking. */
+.participants-row.is-speaking .participants-emoji::after {
+  content: "";
+  position: absolute;
+  inset: -0.1875rem;
+  border-radius: 50%;
+  border: 0.125rem solid color-mix(in srgb, var(--success, #22c55e) 70%, transparent);
+  animation: participants-pulse 1.2s ease-out infinite;
+}
+@keyframes participants-pulse {
+  0%   { opacity: 0.9; transform: scale(0.9); }
+  100% { opacity: 0;   transform: scale(1.25); }
+}
+.participants-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.participants-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.participants-status { font-size: 0.6875rem; color: var(--muted); line-height: 1; }
+.participants-row.is-speaking .participants-status::before { content: "Speaking…"; color: var(--success, #22c55e); }
+.participants-row.is-muted:not(.is-speaking) .participants-status::before { content: "Muted"; }
+/* Pending unmute request — must come after the "Muted" rule (equal
+   specificity) so it wins while the host is waiting on consent. */
+.participants-row.is-asking:not(.is-speaking) .participants-status::before {
+  content: "Asked to unmute…";
+  color: var(--warning, #f59e0b);
+}
+.participants-mute {
+  flex: 0 0 auto;
+  width: 1.875rem;
+  height: 1.875rem;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.participants-mute:hover {
+  background: var(--panel);
+  color: var(--text-strong);
+  border-color: var(--border);
+}
+/* Muted state: the button is "active red" — click again to unmute. */
+.participants-mute.is-muted {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+.participants-mute.is-muted:hover {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+/* Unmuted + actively speaking → green normal mic (matches the row glow). */
+.participants-mute.is-live {
+  color: var(--success, #22c55e);
+  border-color: color-mix(in srgb, var(--success, #22c55e) 40%, var(--border));
+  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
+}
+/* Participant audio disabled → grey slashed mic, not interactive. */
+.participants-mute.is-audio-off {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.participants-mute.is-audio-off:hover { background: transparent; border-color: transparent; }
+/* Unmute request pending → amber pulse on the (still red/slashed) mic so the
+   host sees they're waiting on the participant's consent. */
+.participants-mute.is-asking {
+  color: var(--warning, #f59e0b);
+  border-color: color-mix(in srgb, var(--warning, #f59e0b) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning, #f59e0b) 14%, transparent);
+  animation: participants-ask-pulse 1.3s ease-in-out infinite;
+}
+@keyframes participants-ask-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (max-width: 75rem) {
+  /* Stacked single-column layout — drop the sticky full-height behaviour. */
+  .stream-side {
+    position: static;
+    height: auto;
+    min-width: 0;
+  }
+  .stream-side .card--chat { height: 32rem; }
+}
+.video-wrap {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+/* object-fit: contain letterboxes/pillarboxes non-16:9 sources (e.g. a
+   4:3 or 2.39:1 video file) against the black wrap instead of cropping. */
+.video-wrap video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+
+/* Live preview frame: pulsing red border so the broadcaster has zero
+   ambiguity about whether they're on the air. */
+.video-wrap.is-live {
+  border-color: var(--live);
+  box-shadow:
+    0 0 0 0.1875rem color-mix(in srgb, var(--live) 32%, transparent),
+    var(--shadow-md);
+  animation: live-frame-pulse 2.4s ease-out infinite;
+}
+@keyframes live-frame-pulse {
+  0%, 100% { box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--live) 32%, transparent), var(--shadow-md); }
+  50%      { box-shadow: 0 0 0 0.375rem  color-mix(in srgb, var(--live) 18%, transparent), var(--shadow-md); }
+}
+.video-wrap.is-live::after {
+  content: "● LIVE";
+  position: absolute;
+  top: 0.625rem;
+  left: 0.625rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  background: var(--live);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,.35);
+  z-index: 2;
+}
+.video-overlay {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  text-align: center;
+  background: radial-gradient(ellipse at center, rgba(20,24,38,.6) 0%, rgba(11,13,20,.92) 100%);
+  color: #cdd3e6;
+  padding: 1rem;
+}
+/* Beats the UA stylesheet [hidden] rule at equal specificity. */
+.video-overlay[hidden] { display: none !important; }
+
+/* Large pause indicator shown over the preview when the file source is
+   paused. Avoids the "preview goes blank" confusion without paying the
+   CPU cost of a canvas compositor. */
+.video-paused-overlay {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(11, 13, 20, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 3;
+  pointer-events: none;
+}
+.video-paused-overlay svg {
+  filter: drop-shadow(0 0.25rem 0.75rem rgba(0,0,0,.45));
+}
+.video-paused-overlay .paused-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+.overlay-eyebrow { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em; color: #8b93a9; margin-bottom: 0.375rem; }
+.overlay-line { font-size: 0.875rem; color: #cdd3e6; }
+.overlay-title { font-size: 1.125rem; font-weight: 600; color: #fff; margin-bottom: 0.375rem; }
+
+.stream-controls {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+}
+
+/* Merged Go-Live / Stop-Stream button. The base look is the standard
+   primary button; .is-live flips it to red and adds a pulsing dot. */
+.btn-live {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  min-width: 8rem;
+}
+.live-btn-dot {
+  display: inline-block;
+  width: 0.5rem; height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+.btn-live.is-live {
+  background: linear-gradient(180deg, var(--live), color-mix(in srgb, var(--live) 80%, black));
+  border-color: color-mix(in srgb, var(--live) 60%, black);
+  color: #fff;
+}
+.btn-live.is-live .live-btn-dot {
+  opacity: 1;
+  background: #fff;
+  box-shadow: 0 0 0 0 rgba(255,255,255,.7);
+  animation: live-btn-pulse 1.4s ease-out infinite;
+}
+@keyframes live-btn-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,255,255,.7); }
+  70%  { box-shadow: 0 0 0 0.5rem rgba(255,255,255,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
+
+/* Mic / cam toggles — visible state change when the track is off. */
+.btn-toggle {
+  flex: 0 0 auto;
+  width: 2.25rem; height: 2.25rem;
+  display: inline-grid; place-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  position: relative;
+}
+.btn-toggle:hover { background: var(--panel); }
+.btn-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-toggle.is-off {
+  background: color-mix(in srgb, var(--danger) 14%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  color: var(--danger);
+}
+.btn-toggle.is-off:hover {
+  background: color-mix(in srgb, var(--danger) 22%, var(--panel-2));
+}
+/* Text-label variant — used by the mic toggle in file mode where a
+   microphone glyph would be misleading. */
+.btn-toggle.is-text {
+  width: auto;
+  min-width: 4.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.btn-toggle-text { line-height: 1; }
+
+/* "On" highlight — used by the talk-over mic toggle when the admin's
+   microphone is live (positive accent, distinct from the .is-off danger). */
+.btn-toggle.is-on {
+  background: color-mix(in srgb, var(--brand) 16%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--border));
+  color: var(--brand);
+}
+.btn-toggle.is-on:hover {
+  background: color-mix(in srgb, var(--brand) 24%, var(--panel-2));
+}
+
+.stack-tight { display: grid; gap: 0.5rem; }
+
+/* Clear Now Showing — a ghost button that hints "remove" on hover. */
+.btn-clear-showing:hover,
+.btn-clear-showing:focus-visible {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+/* ── Saved showings library modal ─────────────────────────────────── */
+.library-modal {
+  width: min(44rem, calc(100vw - 2rem));
+}
+.library-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  max-height: calc(100dvh - 12rem);
+  overflow: hidden;
+}
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.library-toolbar .muted {
+  font-size: 0.8125rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.125rem 0.25rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.library-list::-webkit-scrollbar { width: 0.375rem; }
+.library-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.library-item {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.library-item:hover {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  background: var(--panel);
+}
+.library-item-poster {
+  width: 3.5rem;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand) 20%, var(--panel-2)),
+    color-mix(in srgb, var(--brand-2) 15%, var(--panel-2)));
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.library-item-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.library-item-info { min-width: 0; }
+.library-item-title {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.125rem;
+}
+.library-item-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.library-item-meta {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1875rem;
+}
+.library-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+.library-item-load {
+  appearance: none;
+  background: var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 70%, black);
+  color: var(--brand-fg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3125rem 0.625rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 4rem;
+}
+.library-item-load:hover { background: color-mix(in srgb, var(--brand) 88%, white); }
+.library-item-delete {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.3125rem 0.625rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 4rem;
+}
+.library-item-delete:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.library-empty {
+  display: grid;
+  place-items: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.library-empty .muted { font-size: 0.75rem; }
+
+/* ── Now Showing card ─────────────────────────────────────────────── */
+.info-card {
+  /* Vertical spacing comes from `.page { gap: 1.5rem }`. */
+}
+.info-card .card-header h2 {
+  font-size: 1rem;
+}
+.info-card .card-header-meta {
+  font-size: 0.75rem;
+}
+
+/* Stream Preview header carries the live session stats (Codec / bytes /
+   elapsed) to the left of the live status — allow it to wrap and keep
+   the long codec string from blowing out the row. */
+.card--video .card-header-meta { flex-wrap: wrap; justify-content: flex-end; row-gap: 0.25rem; }
+.meta-stat { white-space: nowrap; }
+.meta-stat strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.meta-k { opacity: 0.7; }
+#codec-out {
+  display: inline-block;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.info-form-grid {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* Left column — poster preview + pick/remove buttons */
+.info-form-poster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.poster-preview {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--brand) 12%, var(--panel-2)),
+      color-mix(in srgb, var(--brand-2) 10%, var(--panel-2)));
+  border: 1px dashed color-mix(in srgb, var(--brand) 35%, var(--border));
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  position: relative;
+  transition: border-color 120ms ease;
+}
+.poster-preview:hover {
+  border-color: color-mix(in srgb, var(--brand) 60%, var(--border));
+}
+.poster-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.poster-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4375rem;
+  color: color-mix(in srgb, var(--muted) 85%, transparent);
+  font-size: 0.6875rem;
+  text-align: center;
+  padding: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.poster-placeholder svg { opacity: 0.65; }
+
+.poster-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+/* .info-form is also .stacked-form, whose `.stacked-form label
+   { display: grid }` rule has higher specificity than a bare
+   `.poster-pick-btn` selector — that's why the icon was stacking
+   above the text. Scope this rule to .info-form-poster to bump the
+   specificity to (0,2,0) and win the cascade. */
+.info-form-poster .poster-pick-btn,
+.info-form-poster #info-poster-clear {
+  cursor: pointer;
+  width: 100%;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  min-width: 0;
+  padding-inline: 0.625rem;
+  white-space: nowrap;
+}
+.info-form-poster .poster-pick-btn input[type="file"] { display: none; }
+.info-form-poster .poster-pick-btn svg { flex: 0 0 auto; }
+.poster-actions .file-hint {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--muted);
+  margin-top: 0.125rem;
+}
+
+/* Right column — text fields */
+.info-form-fields {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.info-form-urls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.info-form textarea {
+  width: 100%;
+  min-height: 6rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  resize: vertical;
+}
+.info-form textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+/* Footer row — status text on the left, three save/load buttons on
+   the right (Library / Save to Library / Publish). Buttons wrap to a
+   second row on cramped widths so the status text never gets pushed
+   off-screen. */
+.info-form-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+.info-form-footer .btn svg { flex: 0 0 auto; }
+.info-form-status {
+  flex: 1;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  min-height: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.info-form-status.is-success { color: var(--ok); }
+.info-form-status.is-success::before { content: "✓"; font-weight: 700; }
+.info-form-status.is-error   { color: var(--danger); }
+.info-form-status.is-error::before   { content: "!"; font-weight: 700; }
+
+/* Responsive — stack poster on top of fields on narrow widths */
+@media (max-width: 48rem) {
+  .info-form-grid { grid-template-columns: 1fr; }
+  .info-form-poster { max-width: 14rem; margin: 0 auto; }
+  .info-form-urls { grid-template-columns: 1fr; }
+}
+
+/* Secondary header used inside .card--video for the chat moderation
+   section, since it shares a container with the camera preview now. */
+.card-subheader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border-soft);
+}
+.card-subheader h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: 0.01em;
+}
+.card-subheader-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.card-subheader-meta strong { color: var(--text); }
+.field-group--inline { margin-top: 0.25rem; }
+
+/* Chat moderation roster on the broadcaster sidecar */
+.chat-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.125rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.chat-roster::-webkit-scrollbar { width: 0.3125rem; }
+.chat-roster::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.chat-roster-empty {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-style: italic;
+  padding: 0.5rem 0;
+  text-align: center;
+}
+.chat-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.chat-roster-emoji {
+  width: 1.625rem;
+  height: 1.625rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+  flex: 0 0 auto;
+  line-height: 1;
+}
+.chat-roster-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.chat-roster-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-roster-ip {
+  font-size: 0.6875rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.chat-roster-kick {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.chat-roster-kick:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+.chat-roster-kick:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
+}
+
+/* Subtle horizontal rule used inside .field-group to separate the
+   streaming-quality controls from the access lock controls without
+   needing a second card header. */
+.field-divider {
+  height: 1px;
+  border: 0;
+  margin: 0.5rem -0.25rem;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--border) 80%, transparent) 20%,
+    color-mix(in srgb, var(--border) 80%, transparent) 80%,
+    transparent
+  );
+}
+
+/* Source tabs (Camera / Video file) */
+.source-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+  width: 100%;
+}
+.source-tab {
+  flex: 1 1 0;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0.4375rem 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-radius: calc(var(--radius-md) - 0.1875rem);
+  cursor: pointer;
+}
+.source-tab:hover { color: var(--text); }
+.source-tab.is-active {
+  background: var(--bg-elev);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-sm);
+}
+.source-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Hidden native file input wrapped in a styled label */
+.file-picker { display: grid; gap: 0.4375rem; min-width: 0; }
+.file-picker-label { font-size: 0.8125rem; color: var(--muted); font-weight: 500; }
+.file-picker-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+}
+.file-picker-btn {
+  display: flex;            /* block-level so it can't grow past parent */
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.8438rem;
+  font-weight: 500;
+  transition: background 120ms ease, border-color 120ms ease;
+  min-width: 0;             /* allow inner text to ellipsis-truncate */
+  max-width: 100%;
+}
+.file-picker:hover .file-picker-btn,
+.file-picker-input:focus + .file-picker-btn {
+  background: var(--panel);
+  border-color: color-mix(in srgb, var(--brand) 50%, var(--border));
+}
+.file-picker-input:focus + .file-picker-btn { outline: 2px solid var(--brand); outline-offset: 2px; }
+#file-picker-text {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-hint { font-size: 0.6875rem; line-height: 1.3; }
+/* "Re-select your file" prompt after a refresh — stands out from the
+   muted helper text with a warning tint. */
+.file-resume-hint {
+  color: var(--warning, #f59e0b);
+  font-weight: 600;
+}
+.file-resume-hint[hidden] { display: none !important; }
+
+/* ffmpeg.wasm transcode progress for unsupported file formats */
+.file-transcoding {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: color-mix(in srgb, var(--brand) 8%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--border));
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.file-transcoding-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.file-transcoding-label { flex: 1; min-width: 0; color: var(--text); }
+.file-transcoding-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+  font-weight: 600;
+}
+.file-transcoding-track {
+  height: 0.375rem;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.file-transcoding-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  border-radius: 999px;
+  transition: width 200ms ease;
+}
+.spinner {
+  width: 0.875rem; height: 0.875rem;
+  border: 0.1875rem solid color-mix(in srgb, var(--brand) 22%, transparent);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.file-transport-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;             /* allow flex children to shrink */
+}
+/* basis 0 + min-width 0 so the range input doesn't enforce its
+   intrinsic width and push the time column off the right edge. */
+.file-seek { flex: 1 1 0; min-width: 0; }
+/* Transport moved into the stream-controls row — grow to fill the space
+   between the mute/blank toggles and the right-pinned admin actions. */
+.file-transport-controls { flex: 1 1 16rem; min-width: 0; }
+.file-time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+/* Bitrate slider field */
+.bitrate-field { display: grid; gap: 0.4375rem; }
+.bitrate-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 0.8125rem; color: var(--muted); font-weight: 500;
+}
+#bitrate-out {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+}
+.bitrate-scale {
+  display: flex; justify-content: space-between;
+  font-size: 0.6875rem; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: -0.125rem;
+}
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 1.25rem;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 0.3125rem;
+  background: var(--panel-2);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.slider::-moz-range-track {
+  height: 0.3125rem;
+  background: var(--panel-2);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem; height: 1rem;
+  margin-top: -0.4375rem;
+  background: var(--brand);
+  border: 2px solid var(--bg-elev);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.slider::-moz-range-thumb {
+  width: 1rem; height: 1rem;
+  background: var(--brand);
+  border: 2px solid var(--bg-elev);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.slider:disabled { opacity: 0.55; cursor: not-allowed; }
+.slider:disabled::-webkit-slider-thumb { background: var(--muted); }
+.slider:disabled::-moz-range-thumb     { background: var(--muted); }
+
+.checkbox-tight { font-size: 0.8125rem; color: var(--text); }
+.checkbox-tight input { accent-color: var(--brand); }
+
+/* Toggle switch + 5-char access-code field for the Access section */
+.switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.875rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.switch-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  border: 0;
+}
+.switch-track {
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: background 160ms ease, border-color 160ms ease;
+  flex: 0 0 auto;
+}
+.switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.125rem;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: -0.4375rem;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: transform 160ms ease, background 160ms ease;
+}
+.switch-input:checked + .switch-track {
+  background: color-mix(in srgb, var(--brand) 30%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--brand) 60%, var(--border));
+}
+.switch-input:checked + .switch-track .switch-thumb {
+  transform: translateX(1rem);
+  background: var(--brand);
+}
+.switch-input:focus-visible + .switch-track {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.switch-label { line-height: 1.2; }
+
+.lock-code-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;             /* lets flex children shrink past content */
+  position: relative;       /* anchor for the "Copied!" flash pill */
+}
+/* Click-to-copy on the code field: standard pointer cursor (like a link),
+   a green tooltip above the field ("Click to copy" on hover → "Copied!"
+   on click), and a subtle green border flash on success. */
+.lock-code-field { position: relative; flex: 1 1 0; min-width: 0; }
+.lock-code { cursor: pointer; }
+.lock-code.is-copied { border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); }
+.lock-tip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 0.375rem);
+  z-index: 5;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--ok);
+  border-radius: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.lock-tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 0.25rem solid transparent;
+  border-top-color: var(--ok);
+}
+.lock-code:hover + .lock-tip,
+.lock-tip.is-show { opacity: 1; }
+.lock-code {
+  flex: 1 1 0;              /* basis 0 so it doesn't claim its intrinsic width */
+  min-width: 0;
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.125rem;
+  font-weight: 600;
+  /* Use padding-inline-end to fake the trailing space the centered
+     text would otherwise create. Real letter-spacing pushes the input
+     past the sidecar width because the browser measures the spaced
+     content for the input's intrinsic size. */
+  letter-spacing: 0.25rem;
+  text-indent: 0.25rem;     /* offset the rightward push from letter-spacing */
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--text-strong);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+.lock-code::placeholder {
+  letter-spacing: 0.1875rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#lock-randomize {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: inline-grid;
+  place-items: center;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+#lock-randomize:hover {
+  background: var(--panel);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  color: var(--brand);
+}
+#lock-randomize:active { transform: scale(0.94); }
+#lock-randomize:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+#lock-randomize svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 320ms cubic-bezier(.4,.2,.2,1);
+}
+/* Brief 360° spin on each click to confirm a new code was generated. */
+#lock-randomize:active svg { transform: rotate(-180deg); }
+.lock-code:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.lock-code:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Narrower viewports: stack the chat as a full-width block under the
+   preview, with its own fixed height (no longer a sticky sidebar). */
+@media (max-width: 75rem) {
+  .stream-grid { grid-template-columns: 1fr; }
+  .card--chat {
+    position: static;
+    height: 32rem;
+    min-width: 0;                  /* full-width stack — don't force 28rem */
+  }
+}
+
+/* ── Mobile sidebar drawer ─────────────────────────────────────────────── */
+@media (max-width: 56.25rem) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; left: 0; top: 0;
+    width: 16rem; height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    z-index: 30;
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .menu-btn { display: grid; }
+  .topbar { padding-left: 0.75rem; }
+}
+
+/* ── Login page ─────────────────────────────────────────────────────────── */
+body.auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  /* Single soft glow descending from the top-center of the page. */
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #141826, transparent 60%),
+    var(--bg);
+  padding: 1.5rem;
+}
+.auth-shell { width: 100%; display: grid; place-items: center; }
+.auth-card {
+  width: min(25rem, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 2rem 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+/* Brand lockup — logo centered above the title + subtitle. */
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.875rem;
+  margin-bottom: 1.75rem;
+}
+.auth-headline { display: grid; gap: 0.1875rem; }
+.auth-title { font-weight: 700; font-size: 1.25rem; color: var(--text-strong); letter-spacing: -0.01em; }
+.auth-sub   { font-size: 0.875rem; color: var(--muted); }
+
+/* Flashes inside the card align with the form fields, not the wider
+   .flash-stack default padding. */
+.auth-card .flash-stack { padding: 0; margin-bottom: 1rem; }
+
+/* "Stay signed in" — compact checkbox row, slightly inset from the
+   taller fields above it. */
+.auth-remember { margin-top: 0.125rem; user-select: none; }
+.auth-submit { margin-top: 0.5rem; height: 2.5rem; }
+
+.auth-foot {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* ── Alert banner composer (Stream settings) ─────────────────────────── */
+.alert-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.alert-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.alert-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+.alert-status::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0.375rem var(--brand);
+}
+.alert-status[hidden] { display: none !important; }
+
+/* ── Settings modal: Users tab ───────────────────────────────────────── */
+/* Fixed 80vh tall (clamped by the base .modal max-height on short screens)
+   so the height stays constant across tabs; the body fills the modal and
+   scrolls when content (e.g. the Users table) overflows. */
+.settings-modal {
+  width: min(48rem, calc(100vw - 2rem));
+  height: 80vh;
+}
+.settings-modal .modal-body { flex: 1 1 auto; min-height: 0; }
+.users-tab-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+/* Cloudflare Turnstile widget on the login form. */
+.auth-turnstile { display: flex; justify-content: center; margin: 0.25rem 0; min-height: 1rem; }
+
+/* Settings modal — section separator + subhead (e.g. Turnstile under Security). */
+.settings-sep { border: 0; border-top: 1px solid var(--border-soft); margin: 1.25rem 0 1rem; }
+.settings-subhead {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+/* ── Settings → About ─────────────────────────────────────────────────────
+   Mirrors the About pane in ~/tspro: a branded hero (logo, version,
+   tagline, VIIBEWARE credit) beside a "Built With" tech-icon grid, with
+   release notes in a collapsible <details>. */
+.about-pane { display: flex; flex-direction: column; gap: 1rem; }
+
+.about-hero {
+  display: grid;
+  grid-template-columns: minmax(12.5rem, 15rem) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel-2);
+}
+.about-hero-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 0.125rem; }
+.about-logo { width: 3.75rem; height: auto; margin-bottom: 0.625rem; }
+.about-hero-name { font-size: 1.0625rem; font-weight: 700; color: var(--text-strong); line-height: 1.25; }
+.about-hero-version { font-size: 0.8125rem; color: var(--muted); font-weight: 500; }
+.about-tagline { font-size: 0.875rem; color: var(--muted); margin-top: 0.5rem; max-width: 34ch; line-height: 1.45; }
+.about-built-by { margin-top: 0.625rem; font-size: 0.8125rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.375rem; }
+.about-license { margin-top: 0.625rem; font-size: 0.75rem; color: var(--muted); line-height: 1.5; max-width: 34ch; }
+
+.viibeware-credit { display: inline-flex; align-items: center; gap: 0.375rem; text-decoration: none; color: var(--muted); }
+.viibeware-credit:hover { opacity: 0.85; }
+.viibeware-credit-sm img { height: 1.125rem; }
+.viibeware-credit-sm .viibeware-name { font-weight: 700; letter-spacing: 0.08em; font-size: 0.8125rem; color: var(--muted); }
+
+.about-hero-stack { display: flex; flex-direction: column; gap: 0.625rem; min-width: 0; }
+.about-stack-label {
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tech-stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr)); gap: 0.625rem; }
+.tech-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 0.625rem;
+  padding: 1rem 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+  text-decoration: none; color: inherit;
+  transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+}
+.tech-tile:hover {
+  border-color: var(--brand);
+  transform: translateY(-0.125rem);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+}
+.tech-icon {
+  width: 2rem; height: 2rem; flex: 0 0 auto;
+  background-color: var(--text);
+  -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; -webkit-mask-position: center;
+  mask-size: contain; mask-repeat: no-repeat; mask-position: center;
+  transition: background-color 140ms ease;
+}
+.tech-tile:hover .tech-icon { background-color: var(--brand); }
+.tech-tile-name { font-size: 0.75rem; font-weight: 500; color: var(--muted); text-align: center; line-height: 1.2; }
+
+/* Release notes + changelog collapsibles — closed caret rotates open. */
+.about-rel-notes,
+.about-changelog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-2);
+  padding: 0.25rem 1rem;
+}
+.about-rel-notes[open],
+.about-changelog[open] { padding-bottom: 1rem; }
+.about-sub-summary {
+  list-style: none; cursor: pointer;
+  display: flex; flex-direction: column; gap: 0.125rem;
+  padding: 0.75rem 1.75rem 0.75rem 0;
+  position: relative; user-select: none;
+}
+.about-sub-summary::-webkit-details-marker { display: none; }
+.about-sub-summary::after {
+  content: ""; position: absolute; right: 0.375rem; top: 50%;
+  width: 0.5rem; height: 0.5rem;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: translateY(-75%) rotate(45deg);
+  transition: transform 180ms ease;
+}
+.about-rel-notes[open] > .about-sub-summary::after,
+.about-changelog[open] > .about-sub-summary::after {
+  transform: translateY(-25%) rotate(-135deg);
+}
+.about-sub { font-size: 1rem; font-weight: 700; margin: 0; color: var(--text-strong); }
+.about-sub-summary:hover > .about-sub { color: var(--brand); }
+.about-sub-summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 0.25rem; border-radius: 0.375rem; }
+.smaller { font-size: 0.75rem; }
+
+.release-notes,
+.changelog {
+  list-style: none; padding: 0; margin: 0.5rem 0 0;
+  display: flex; flex-direction: column; gap: 0.875rem;
+}
+.release-notes > li,
+.changelog > li {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.75rem 0.875rem; background: var(--panel);
+}
+.release-notes > li .u-name,
+.changelog > li .u-name { font-weight: 600; color: var(--text-strong); }
+.release-notes ul,
+.changelog ul {
+  margin: 0.5rem 0 0; padding-left: 1.125rem; color: var(--text); font-size: 0.875rem;
+}
+.release-notes ul li,
+.changelog ul li { margin: 0.125rem 0; line-height: 1.45; }
+.release-notes > li > p,
+.changelog > li > p {
+  margin: 0.375rem 0 0; color: var(--text); font-size: 0.875rem; line-height: 1.5;
+}
+/* Changelog subsection headings rendered from "### Added" etc. */
+.changelog > li h3,
+.changelog > li h4 {
+  margin: 0.875rem 0 0.25rem;
+  font-size: 0.8125rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.changelog > li h3:first-of-type,
+.changelog > li h4:first-of-type { margin-top: 0.625rem; }
+
+@media (max-width: 40rem) {
+  .about-hero { grid-template-columns: 1fr; gap: 1rem; }
+  .about-hero-brand { align-items: center; text-align: center; }
+  .about-tagline, .about-license { text-align: center; max-width: 100%; }
+}
+
+/* ── Live password-strength meter (Settings → Profile) ───────────────── */
+.pw-strength { display: flex; flex-direction: column; gap: 0.4375rem; margin-top: -0.25rem; }
+.pw-strength[hidden] { display: none !important; }
+.pw-strength-track {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.pw-strength-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--danger);
+  transition: width 160ms ease, background 160ms ease;
+}
+.pw-strength[data-level="weak"]   .pw-strength-fill { background: var(--danger); }
+.pw-strength[data-level="medium"] .pw-strength-fill { background: #f59e0b; }
+.pw-strength[data-level="strong"] .pw-strength-fill { background: var(--ok); }
+.pw-strength-label { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.pw-strength[data-level="strong"] .pw-strength-label { color: var(--ok); }
+.pw-reqs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.125rem 0.75rem;
+}
+.pw-reqs li {
+  position: relative;
+  padding-left: 1.125rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.pw-reqs li::before { content: "○"; position: absolute; left: 0; }
+.pw-reqs li.is-met { color: var(--text); }
+.pw-reqs li.is-met::before { content: "✓"; color: var(--ok); font-weight: 700; }

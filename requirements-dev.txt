@@ -1,0 +1,6 @@
+# Dev-only tooling. Install with:
+#   pip install -r requirements-dev.txt
+#   playwright install --with-deps chromium firefox
+pytest==8.3.3
+pytest-playwright==0.5.2
+playwright==1.48.0

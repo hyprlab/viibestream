@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><title>500 — {{ app_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head><body class="auth"><main class="auth-shell"><div class="auth-card">
+<h1>Something broke</h1><p class="muted">An unexpected error occurred. Please try again.</p>
+<p><a class="btn btn-ghost" href="{{ url_for('main.viewer') }}">Back to viewer</a></p>
+</div></main></body></html>

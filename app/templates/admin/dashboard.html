@@ -1,0 +1,54 @@
+{% extends "base_admin.html" %}
+{% block title %}Dashboard — {{ app_name }}{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid-cards">
+  <div class="card">
+    <div class="card-eyebrow">Stream status</div>
+    <div class="card-stat">
+      <span class="live-dot{% if broadcast.live %} is-live{% endif %}"></span>
+      <span class="card-stat-value">{{ "Live" if broadcast.live else "Offline" }}</span>
+    </div>
+    {% if broadcast.live %}
+      <div class="card-sub">Broadcasting as <strong>{{ broadcast.broadcaster }}</strong></div>
+      <div class="card-sub">Started {{ broadcast.started_at }}</div>
+    {% else %}
+      <div class="card-sub">No active broadcast.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-eyebrow">Audience</div>
+    <div class="card-stat">
+      <span class="card-stat-value" id="viewer-count">{{ broadcast.viewers }}</span>
+      <span class="card-stat-unit">watching</span>
+    </div>
+    <div class="card-sub">Updates in real time when you go live.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-eyebrow">You</div>
+    <div class="card-stat">
+      <span class="card-stat-value">{{ current_user.username }}</span>
+    </div>
+    <div class="card-sub">{{ current_user.role.value }} · {{ current_user.email }}</div>
+  </div>
+</div>
+
+<div class="card card--wide">
+  <div class="card-header">
+    <h2>Quick actions</h2>
+  </div>
+  <div class="action-row">
+    {% if current_user.has_permission('stream.broadcast') %}
+    <a href="{{ url_for('admin.stream') }}" class="btn btn-primary">Stream</a>
+    {% endif %}
+    <a href="{{ url_for('main.viewer') }}" target="_blank" rel="noopener" class="btn btn-ghost">Open viewer page</a>
+    {% if current_user.is_admin() %}
+    <button type="button" class="btn btn-ghost" data-open-modal="settings-modal" data-tab="users">Manage users</button>
+    {% endif %}
+    <button type="button" class="btn btn-ghost" data-open-modal="settings-modal">Settings</button>
+  </div>
+</div>
+{% endblock %}
