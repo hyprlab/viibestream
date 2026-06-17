@@ -11,6 +11,23 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-17
+
+### Added
+
+- **Editable subheading** in the **Settings → Branding** tab
+  (`app/templates/_settings_modal.html`, `app/admin/routes.py::save_branding`).
+  A new `app_tagline` column on `AppSettings` (added idempotently via
+  `_ensure_schema`) drives the page `<meta description>` and the
+  `og`/`twitter` description, mirrored into `app.config["APP_DESCRIPTION"]` at
+  boot/save. Blank falls back to the default.
+
+### Changed
+
+- **Default subheading** is now "Self-hosted live streaming platform for watch
+  parties" (`app/app_settings.py::DEFAULT_APP_TAGLINE`), replacing the previous
+  "Watch the live stream on …" text.
+
 ## [0.2.0] — 2026-06-17
 
 ### Added

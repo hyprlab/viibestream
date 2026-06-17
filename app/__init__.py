@@ -224,6 +224,8 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_template_globals(app: Flask) -> None:
+    from .app_settings import DEFAULT_APP_TAGLINE
+
     @app.context_processor
     def _inject():
         app_name = app.config["APP_NAME"]
@@ -235,7 +237,7 @@ def _register_template_globals(app: Flask) -> None:
             # URL is absolute (so crawlers can fetch it) and version-stamped
             # (so platforms re-crawl when the operator swaps the image).
             "og_title": app_name,
-            "og_description": f"Watch the live stream on {app_name}.",
+            "og_description": app.config.get("APP_DESCRIPTION", DEFAULT_APP_TAGLINE),
             "og_image_url": url_for(
                 "main.og_image",
                 v=app.config.get("OG_IMAGE_VERSION", ""),
@@ -316,6 +318,7 @@ def _ensure_schema(app: Flask) -> None:
         settings_cols = {c["name"] for c in inspector.get_columns("app_settings")}
         branding_ddl = {
             "app_title": "ALTER TABLE app_settings ADD COLUMN app_title VARCHAR(120) NOT NULL DEFAULT ''",
+            "app_tagline": "ALTER TABLE app_settings ADD COLUMN app_tagline VARCHAR(300) NOT NULL DEFAULT ''",
             "og_image_bytes": "ALTER TABLE app_settings ADD COLUMN og_image_bytes BLOB",
             "og_image_mime": "ALTER TABLE app_settings ADD COLUMN og_image_mime VARCHAR(64)",
             "og_image_etag": "ALTER TABLE app_settings ADD COLUMN og_image_etag VARCHAR(128) NOT NULL DEFAULT ''",

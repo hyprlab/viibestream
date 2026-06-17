@@ -101,6 +101,7 @@ def save_branding():
 
     row = get_settings()
     row.app_title = (request.form.get("app_title") or "").strip()[:120]
+    row.app_tagline = (request.form.get("app_tagline") or "").strip()[:300]
 
     if request.form.get("reset_og_image") == "1":
         # Drop the custom image — the bundled default takes over.

@@ -55,6 +55,22 @@ def effective_app_name(row: AppSettings) -> str:
     return title or current_app.config.get("APP_NAME_DEFAULT") or current_app.config["APP_NAME"]
 
 
+# The fallback subheading shown when the operator hasn't set one, used for
+# the page <meta description> and the og/twitter description.
+DEFAULT_APP_TAGLINE = "Self-hosted live streaming platform for watch parties"
+
+
+def default_app_tagline() -> str:
+    """The fallback subheading used when the operator hasn't set one."""
+    return DEFAULT_APP_TAGLINE
+
+
+def effective_app_tagline(row: AppSettings) -> str:
+    """The operator's chosen subheading, or the default when blank."""
+    tagline = (row.app_tagline or "").strip()
+    return tagline or default_app_tagline()
+
+
 def default_og_version() -> str:
     """Cache-busting token for the bundled default OG image (its mtime), so
     the og:image URL changes if the shipped default is ever replaced."""
@@ -71,4 +87,5 @@ def apply_branding_config() -> None:
     without a per-request query — the same pattern used for Turnstile."""
     row = get_settings()
     current_app.config["APP_NAME"] = effective_app_name(row)
+    current_app.config["APP_DESCRIPTION"] = effective_app_tagline(row)
     current_app.config["OG_IMAGE_VERSION"] = row.og_image_etag or default_og_version()
