@@ -316,6 +316,10 @@ class AppSettings(db.Model):
     # platforms re-crawl when the image changes. All null/blank → the bundled
     # default ``static/img/og-image.webp`` is served instead.
     app_title = db.Column(db.String(120), nullable=False, default="")
+    # Short tagline / subheading — the description shown in link previews and
+    # the page <meta description>. Blank falls back to a default built from
+    # the effective app title.
+    app_tagline = db.Column(db.String(300), nullable=False, default="")
     og_image_bytes = db.Column(db.LargeBinary)       # nullable
     og_image_mime = db.Column(db.String(64))         # nullable
     og_image_etag = db.Column(db.String(128), nullable=False, default="")

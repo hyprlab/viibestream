@@ -8,7 +8,12 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.2.0 — 2026-06-17 (latest) — Branding & link previews
+## 0.2.1 — 2026-06-17 (latest) — Editable subheading
+
+- **Editable subheading.** The **Settings → Branding** tab now has a *Subheading* field, so admins can set the short description that appears beneath the title in link previews and as the page description — no longer fixed text. Leave it blank to use the default.
+- **Refreshed default subheading.** The out-of-the-box description is now "Self-hosted live streaming platform for watch parties."
+
+## 0.2.0 — 2026-06-17 — Branding & link previews
 
 - **Polished link previews.** Share the public link anywhere — chat apps, social media, messengers — and it now unfurls with a proper preview card (title, description, and a 1200×630 image) via OpenGraph and Twitter Card tags. The preview shows on the viewer, sign-in, and admin pages.
 - **Brandable from the UI.** A new **Settings → Branding** tab (admins) lets you set the app title and upload your own share image — no file edits or redeploys. The title flows through the header, browser tab, and link previews; leave it blank to fall back to the default. A built-in default share image ships out of the box.
