@@ -11,6 +11,32 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-17
+
+### Added
+
+- **OpenGraph / Twitter Card link previews** (`app/templates/_meta_og.html`,
+  `app/main/routes.py`). A shared meta partial — included in the public viewer,
+  sign-in, and admin `<head>`s — emits `og:*` + `twitter:card` tags so the link
+  unfurls with a title, description, and 1200×630 image when posted to chat apps
+  and social media. The `og:image` URL is absolute and version-stamped (`?v=`)
+  so platforms re-crawl when the image changes. A new public `/og-image` route
+  serves the operator's uploaded image or falls back to the bundled default
+  (`static/img/og-image.webp`).
+- **Branding settings** (`app/templates/_settings_modal.html`,
+  `app/admin/routes.py::save_branding`). A new admin-only **Settings → Branding**
+  tab to set the app title and upload a share image (JPEG/PNG/WebP/GIF, ≤4 MB)
+  with a live preview and a reset-to-default option.
+
+### Changed
+
+- **`AppSettings` model** (`app/models.py`) gained `app_title` and
+  `og_image_bytes` / `og_image_mime` / `og_image_etag` columns (added to existing
+  DBs idempotently via `_ensure_schema`). The effective title is mirrored into
+  `app.config["APP_NAME"]` at boot and on save — the same pattern used for the
+  Turnstile config — so every `{{ app_name }}` reflects the current value with no
+  per-request query (`app/app_settings.py::apply_branding_config`).
+
 ## [0.1.0] — 2026-06-16
 
 ### Added

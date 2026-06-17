@@ -135,7 +135,7 @@ image:
 # docker-compose.yml
 services:
   viibestream:
-    image: viibeware/viibestream:latest   # or pin a version, e.g. :0.1.0
+    image: viibeware/viibestream:latest   # or pin a version, e.g. :0.2.0
     container_name: viibestream
     restart: unless-stopped
     env_file:

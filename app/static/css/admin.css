@@ -1730,6 +1730,23 @@ body.auth {
   color: var(--text-strong);
 }
 
+/* Settings → Branding: framed preview of the current OpenGraph share image,
+   sized to the 1.91:1 ratio social platforms crop to. */
+.og-preview {
+  margin: 0.25rem 0 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--surface-2, var(--surface));
+}
+.og-preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+}
+
 /* ── Settings → About ─────────────────────────────────────────────────────
    Mirrors the About pane in ~/tspro: a branded hero (logo, version,
    tagline, VIIBEWARE credit) beside a "Built With" tech-icon grid, with

@@ -296,9 +296,10 @@ class ChatSession(db.Model):
 
 class AppSettings(db.Model):
     """Runtime-editable application settings managed from the admin UI
-    (Settings → Security). Single row, ``id == 1``. Currently holds the
-    Cloudflare Turnstile login-captcha configuration; seeded once from the
-    matching environment variables, then owned by the admin interface."""
+    (Settings → Security / Branding). Single row, ``id == 1``. Holds the
+    Cloudflare Turnstile login-captcha configuration (seeded once from the
+    matching environment variables) plus the operator-chosen branding: the
+    app title and the OpenGraph share image. Owned by the admin interface."""
 
     __tablename__ = "app_settings"
 
@@ -306,3 +307,15 @@ class AppSettings(db.Model):
     turnstile_enabled = db.Column(db.Boolean, nullable=False, default=False)
     turnstile_site_key = db.Column(db.String(120), nullable=False, default="")
     turnstile_secret_key = db.Column(db.String(120), nullable=False, default="")
+
+    # Branding ----------------------------------------------------------------
+    # When ``app_title`` is blank the app falls back to ``APP_NAME_DEFAULT``
+    # (the compiled-in default). The OpenGraph image is stored inline as a
+    # small BLOB — like the Now-Showing poster — and served by /og-image;
+    # ``og_image_etag`` doubles as a cache-busting version token so social
+    # platforms re-crawl when the image changes. All null/blank → the bundled
+    # default ``static/img/og-image.webp`` is served instead.
+    app_title = db.Column(db.String(120), nullable=False, default="")
+    og_image_bytes = db.Column(db.LargeBinary)       # nullable
+    og_image_mime = db.Column(db.String(64))         # nullable
+    og_image_etag = db.Column(db.String(128), nullable=False, default="")

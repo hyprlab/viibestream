@@ -13,6 +13,7 @@
       <button type="button" class="modal-tab is-active" role="tab" data-tab="profile" aria-selected="true">Profile</button>
       {% if current_user.is_admin() %}
       <button type="button" class="modal-tab" role="tab" data-tab="users" aria-selected="false">Users</button>
+      <button type="button" class="modal-tab" role="tab" data-tab="branding" aria-selected="false">Branding</button>
       <button type="button" class="modal-tab" role="tab" data-tab="security" aria-selected="false">Security</button>
       {% endif %}
       <button type="button" class="modal-tab" role="tab" data-tab="about" aria-selected="false">About</button>
@@ -62,6 +63,50 @@
           </div>
         </form>
       </div>
+
+      {% if current_user.is_admin() %}
+      <div class="modal-panel" data-panel="branding" role="tabpanel" hidden>
+        <h3 class="settings-subhead">App branding</h3>
+        <form method="post" action="{{ url_for('admin.save_branding') }}"
+              class="stacked-form" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label>
+            <span>App title</span>
+            <input type="text" name="app_title" autocomplete="off" maxlength="120"
+                   value="{{ settings_branding.app_title }}"
+                   placeholder="{{ app_name }}">
+            <small class="muted">Shown in the header, the browser tab, and in the
+              link preview when the stream is shared. Leave blank to use the
+              default ({{ config['APP_NAME_DEFAULT'] }}).</small>
+          </label>
+
+          <hr class="settings-sep">
+          <h3 class="settings-subhead">Share image</h3>
+          <p class="muted">The preview image shown when the public link is posted
+            to social media, chat apps, or messengers (OpenGraph / Twitter card).</p>
+          <div class="og-preview">
+            <img class="og-preview-img" src="{{ og_image_url }}"
+                 alt="Current share image"
+                 width="1200" height="630" loading="lazy">
+          </div>
+          <label>
+            <span>Replace share image</span>
+            <input type="file" name="og_image"
+                   accept="image/png,image/jpeg,image/webp,image/gif">
+            <small class="muted">Recommended 1200×630. JPEG, PNG, WebP, or GIF, up to 4&nbsp;MB.</small>
+          </label>
+          {% if settings_branding.og_image_bytes %}
+          <label class="checkbox">
+            <input type="checkbox" name="reset_og_image" value="1">
+            <span>Remove the custom image and use the default</span>
+          </label>
+          {% endif %}
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save branding</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
 
       {% if current_user.is_admin() %}
       <div class="modal-panel" data-panel="security" role="tabpanel" hidden>
