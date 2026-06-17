@@ -62,10 +62,12 @@ def _inject_settings_users():
     if not (current_user.is_authenticated and current_user.is_admin()):
         return {}
     from ..app_settings import get_settings
+    row = get_settings()
     return {
         "settings_users": User.query.order_by(User.created_at.asc()).all(),
         "settings_create_form": CreateUserForm(),
-        "settings_turnstile": get_settings(),
+        "settings_turnstile": row,
+        "settings_branding": row,
     }
 
 
@@ -86,6 +88,48 @@ def save_turnstile():
     db.session.commit()
     apply_turnstile_config()
     flash("Turnstile settings saved.", "success")
+    return redirect(request.referrer or url_for("admin.dashboard"))
+
+
+@bp.route("/settings/branding", methods=["POST"])
+@admin_required
+def save_branding():
+    """Persist the app title and OpenGraph share image from the
+    Settings → Branding tab and apply the new title live."""
+    import hashlib
+    from ..app_settings import get_settings, apply_branding_config
+
+    row = get_settings()
+    row.app_title = (request.form.get("app_title") or "").strip()[:120]
+
+    if request.form.get("reset_og_image") == "1":
+        # Drop the custom image — the bundled default takes over.
+        row.og_image_bytes = None
+        row.og_image_mime = None
+        row.og_image_etag = ""
+    else:
+        f = request.files.get("og_image")
+        if f and f.filename:
+            data = f.read()
+            if len(data) > POSTER_MAX_BYTES:
+                flash(
+                    f"Share image is larger than the "
+                    f"{POSTER_MAX_BYTES // (1024 * 1024)} MB limit.",
+                    "error",
+                )
+                return redirect(request.referrer or url_for("admin.dashboard"))
+            mime = (f.mimetype or "").lower()
+            if mime not in ALLOWED_POSTER_MIMES:
+                flash("Share image must be JPEG, PNG, WebP, or GIF.", "error")
+                return redirect(request.referrer or url_for("admin.dashboard"))
+            row.og_image_bytes = data
+            row.og_image_mime = mime
+            # The etag doubles as the cache-busting version in the og:image URL.
+            row.og_image_etag = hashlib.sha1(data).hexdigest()[:16]
+
+    db.session.commit()
+    apply_branding_config()
+    flash("Branding saved.", "success")
     return redirect(request.referrer or url_for("admin.dashboard"))
 
 

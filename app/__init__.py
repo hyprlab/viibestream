@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import secrets
 
-from flask import Flask, g, render_template
+from flask import Flask, g, render_template, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import get_config
@@ -56,6 +56,12 @@ def create_app(config_class=None) -> Flask:
         # row from the env vars on first boot, then the UI owns it.
         from .app_settings import apply_turnstile_config
         apply_turnstile_config()
+        # Capture the compiled-in app name before branding can override it,
+        # so a blank app_title always falls back to it. Then mirror the
+        # operator's branding (title + OG image version) into app.config.
+        app.config.setdefault("APP_NAME_DEFAULT", app.config["APP_NAME"])
+        from .app_settings import apply_branding_config
+        apply_branding_config()
         # Restore the persisted Now Showing so it survives restarts.
         from .stream.info import load_from_db as _load_now_showing
         _load_now_showing()
@@ -220,10 +226,21 @@ def _register_error_handlers(app: Flask) -> None:
 def _register_template_globals(app: Flask) -> None:
     @app.context_processor
     def _inject():
+        app_name = app.config["APP_NAME"]
         return {
-            "app_name": app.config["APP_NAME"],
+            "app_name": app_name,
             "app_version": app.config["APP_VERSION"],
             "csp_nonce": getattr(g, "csp_nonce", ""),
+            # OpenGraph / Twitter-card values for the shared link. The image
+            # URL is absolute (so crawlers can fetch it) and version-stamped
+            # (so platforms re-crawl when the operator swaps the image).
+            "og_title": app_name,
+            "og_description": f"Watch the live stream on {app_name}.",
+            "og_image_url": url_for(
+                "main.og_image",
+                v=app.config.get("OG_IMAGE_VERSION", ""),
+                _external=True,
+            ),
         }
 
     # Release Notes + Changelog: editing RELEASE_NOTES.md / CHANGELOG.md at
@@ -292,6 +309,22 @@ def _ensure_schema(app: Flask) -> None:
             db.session.execute(text(f"ALTER TABLE users ADD COLUMN {col} VARCHAR"))
             db.session.commit()
             app.logger.info("Added users.%s for persistent chat identity.", col)
+
+    # Branding columns on app_settings (added after first boot): the app
+    # title and the OpenGraph share image. Each ALTER is idempotent.
+    if "app_settings" in inspector.get_table_names():
+        settings_cols = {c["name"] for c in inspector.get_columns("app_settings")}
+        branding_ddl = {
+            "app_title": "ALTER TABLE app_settings ADD COLUMN app_title VARCHAR(120) NOT NULL DEFAULT ''",
+            "og_image_bytes": "ALTER TABLE app_settings ADD COLUMN og_image_bytes BLOB",
+            "og_image_mime": "ALTER TABLE app_settings ADD COLUMN og_image_mime VARCHAR(64)",
+            "og_image_etag": "ALTER TABLE app_settings ADD COLUMN og_image_etag VARCHAR(128) NOT NULL DEFAULT ''",
+        }
+        for col, ddl in branding_ddl.items():
+            if col not in settings_cols:
+                db.session.execute(text(ddl))
+                db.session.commit()
+                app.logger.info("Added app_settings.%s for branding.", col)
 
 
 # ── First-boot bootstrap ────────────────────────────────────────────────────

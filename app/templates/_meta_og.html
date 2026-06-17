@@ -1,0 +1,18 @@
+{# OpenGraph + Twitter Card tags for link previews when the page is shared.
+   `app_name`, `og_title`, `og_description`, and `og_image_url` are injected
+   by the global context processor (app/__init__.py). `og_image_url` is
+   absolute and version-stamped so social platforms re-crawl when the
+   operator swaps the image from Settings → Branding. #}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ app_name }}">
+<meta property="og:title" content="{{ og_title }}">
+<meta property="og:description" content="{{ og_description }}">
+<meta property="og:url" content="{{ request.url }}">
+<meta property="og:image" content="{{ og_image_url }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ app_name }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ og_title }}">
+<meta name="twitter:description" content="{{ og_description }}">
+<meta name="twitter:image" content="{{ og_image_url }}">
