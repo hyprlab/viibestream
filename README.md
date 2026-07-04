@@ -90,7 +90,7 @@ MediaSource playback over Socket.IO.
   force, login rate limiting, and an optional Cloudflare Turnstile
   captcha. ProxyFix support for HTTPS-terminating reverse proxies.
 - **Docker-first** — runs as a single container; image published on
-  [Docker Hub](https://hub.docker.com/r/viibeware/viibestream).
+  [Docker Hub](https://hub.docker.com/r/hyprlab/viibestream).
 
 ## How it works
 
@@ -118,7 +118,7 @@ full architecture map.
 ## Install with the pre-built image
 
 The fastest path: run the published image from
-[`viibeware/viibestream`](https://hub.docker.com/r/viibeware/viibestream)
+[`hyprlab/viibestream`](https://hub.docker.com/r/hyprlab/viibestream)
 — no clone, no build. You just need an empty folder for your Compose
 file and your `.env`.
 
@@ -135,7 +135,7 @@ image:
 # docker-compose.yml
 services:
   viibestream:
-    image: viibeware/viibestream:latest   # or pin a version, e.g. :0.2.1
+    image: hyprlab/viibestream:latest   # or pin a version, e.g. :0.2.2
     container_name: viibestream
     restart: unless-stopped
     env_file:
@@ -168,7 +168,7 @@ All configuration lives in a `.env` file next to `docker-compose.yml`.
 Grab the annotated template from the repo and copy it to `.env`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/viibeware/viibestream/main/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/hyprlab/viibestream/main/.env.example -o .env
 ```
 
 `.env` holds secrets and must **never** be committed to git. Open it in
@@ -256,7 +256,7 @@ Prefer to build the image yourself? Clone the repo — it ships its own
 `docker-compose.yml` with `build: .`:
 
 ```bash
-git clone https://github.com/viibeware/viibestream.git
+git clone https://github.com/hyprlab/viibestream.git
 cd viibestream
 cp .env.example .env            # then edit as in step 2 above
 docker compose up --build -d
@@ -391,7 +391,7 @@ Compose.
 
 ## License
 
-Copyright (C) 2026 VIIBEWARE.
+Copyright (C) 2026 Hyprlab.
 
 Viibestream is free software: you can redistribute it and/or modify it
 under the terms of the **GNU Affero General Public License** as published

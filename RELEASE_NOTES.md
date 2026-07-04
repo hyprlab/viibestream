@@ -8,7 +8,12 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.2.1 — 2026-06-17 (latest) — Editable subheading
+## 0.2.2 — 2026-07-04 (latest) — Hyprlab rebrand
+
+- **New home.** The project has moved to the **Hyprlab** account on both GitHub and Docker Hub (`hyprlab/viibestream`) — update your image and clone URLs accordingly.
+- **Refreshed About credit.** The **Settings → About** tab now shows the Hyprlab logo and links to [hyprlab.co](https://hyprlab.co).
+
+## 0.2.1 — 2026-06-17 — Editable subheading
 
 - **Editable subheading.** The **Settings → Branding** tab now has a *Subheading* field, so admins can set the short description that appears beneath the title in link previews and as the page description — no longer fixed text. Leave it blank to use the default.
 - **Refreshed default subheading.** The out-of-the-box description is now "Self-hosted live streaming platform for watch parties."

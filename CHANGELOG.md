@@ -11,6 +11,19 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-07-04
+
+### Changed
+
+- **Rebranded from Viibeware to Hyprlab.** The GitHub and Docker Hub repos now
+  live under the `hyprlab` account (`hyprlab/viibestream`); `README.md`
+  install/clone/pull instructions point there. The **Settings → About** credit
+  now reads "Built by Hyprlab", links to `https://hyprlab.co`, and uses the new
+  `static/img/icon_hyprlab.png` logo (24 px tall, ±3 px horizontal margin, name
+  set in `font-weight: 800` / `0.865rem` with no letter-spacing). The old
+  `viibeware.svg` asset and `.viibeware-*` CSS classes were removed
+  (`app/templates/_settings_modal.html`, `app/static/css/admin.css`).
+
 ## [0.2.1] — 2026-06-17
 
 ### Added
