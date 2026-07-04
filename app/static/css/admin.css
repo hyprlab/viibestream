@@ -1749,7 +1749,7 @@ body.auth {
 
 /* ── Settings → About ─────────────────────────────────────────────────────
    Mirrors the About pane in ~/tspro: a branded hero (logo, version,
-   tagline, VIIBEWARE credit) beside a "Built With" tech-icon grid, with
+   tagline, Hyprlab credit) beside a "Built With" tech-icon grid, with
    release notes in a collapsible <details>. */
 .about-pane { display: flex; flex-direction: column; gap: 1rem; }
 
@@ -1771,10 +1771,10 @@ body.auth {
 .about-built-by { margin-top: 0.625rem; font-size: 0.8125rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.375rem; }
 .about-license { margin-top: 0.625rem; font-size: 0.75rem; color: var(--muted); line-height: 1.5; max-width: 34ch; }
 
-.viibeware-credit { display: inline-flex; align-items: center; gap: 0.375rem; text-decoration: none; color: var(--muted); }
-.viibeware-credit:hover { opacity: 0.85; }
-.viibeware-credit-sm img { height: 1.125rem; }
-.viibeware-credit-sm .viibeware-name { font-weight: 700; letter-spacing: 0.08em; font-size: 0.8125rem; color: var(--muted); }
+.hyprlab-credit { display: inline-flex; align-items: center; gap: 0.375rem; text-decoration: none; color: var(--muted); }
+.hyprlab-credit:hover { opacity: 0.85; }
+.hyprlab-credit-sm img { height: 1.5rem; margin-left: -0.1875rem; margin-right: -0.1875rem; }
+.hyprlab-credit-sm .hyprlab-name { font-weight: 800; letter-spacing: 0; font-size: 0.865rem; color: var(--muted); }
 
 .about-hero-stack { display: flex; flex-direction: column; gap: 0.625rem; min-width: 0; }
 .about-stack-label {
