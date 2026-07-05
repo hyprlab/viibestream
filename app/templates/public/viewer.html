@@ -55,7 +55,7 @@
   <main class="public-main">
     <div class="player">
       <div class="player-stage">
-        <video id="player" autoplay muted playsinline></video>
+        <video id="player" autoplay playsinline></video>
 
         <div class="player-overlay" id="offline-overlay"
              {% if broadcast.live %}hidden{% endif %}>
@@ -172,9 +172,9 @@
       <div class="player-controls-trigger" aria-hidden="true"></div>
 
       <div class="player-controls" id="player-controls">
-        <button type="button" class="player-btn" id="mute-btn" title="Mute / unmute" aria-pressed="true" aria-label="Mute or unmute">
-          <svg class="ico-muted" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-          <svg class="ico-vol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <button type="button" class="player-btn" id="mute-btn" title="Mute / unmute" aria-pressed="false" aria-label="Mute or unmute">
+          <svg class="ico-muted" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <svg class="ico-vol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         </button>
 
         <input type="range" id="volume" class="volume" min="0" max="1" step="0.01" value="1"
@@ -209,10 +209,11 @@
              reaction control is hidden (reactions disabled by the host). -->
         <div class="player-controls-right">
         <div class="reaction-control" id="reaction-control" hidden>
-          <button type="button" class="player-btn" id="reaction-btn"
+          <button type="button" class="reaction-btn" id="reaction-btn"
                   title="Send a reaction" aria-label="Send a reaction"
                   aria-haspopup="true" aria-expanded="false">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            <span class="reaction-btn-emoji" aria-hidden="true">🤣</span>
+            <span class="reaction-btn-label">Reactions</span>
           </button>
           <div class="reaction-palette" id="reaction-palette" role="menu" hidden>
             <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤣" aria-label="React laughing">🤣</button>

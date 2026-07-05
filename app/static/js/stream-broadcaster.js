@@ -24,8 +24,6 @@
     liveBtnLabel:document.querySelector('#live-btn .live-btn-label'),
     micBtn:      document.getElementById('toggle-mic-btn'),
     camBtn:      document.getElementById('toggle-cam-btn'),
-    talkMicBtn:  document.getElementById('talk-mic-btn'),
-    monitorMuteBtn: document.getElementById('monitor-mute-btn'),
     cameraSel:   document.getElementById('camera-select'),
     micSel:      document.getElementById('mic-select'),
     qualitySel:  document.getElementById('quality-select'),
@@ -38,6 +36,8 @@
     fileResumeHint: document.getElementById('file-resume-hint'),
     fileTransport:document.getElementById('file-transport'),
     fileSeek:     document.getElementById('file-seek'),
+    fileVolume:   document.getElementById('file-volume'),
+    fileMuteBtn:  document.getElementById('file-mute-btn'),
     fileTime:     document.getElementById('file-time'),
     fileLoop:     document.getElementById('file-loop'),
     filePaused:   document.getElementById('file-paused-overlay'),
@@ -94,17 +94,17 @@
     startedAt: 0,
     tickHandle: null,
     isLive: false,
-    // File-mode "talk over" mic: the admin can mix their microphone into
-    // the file's audio track. Audio-only — the video is the file's own
-    // capture track (no canvas), so there's no framerate cost. `mixer`
-    // holds the Web Audio graph; see the "File audio mixer" section.
-    talkOn: false,            // admin mic captured + unmuted
-    fileMuted: false,         // "Mute File Stream" — file audio gain 0
-    fileLocalMuted: false,    // monitor mute — silence the file on THIS device
-                              // only; the stream still carries the audio
+    // File-mode audio. captureStream() carries the file's audio at full level
+    // and ignores the media element's own volume/muted, so the broadcast
+    // level is set with a Web Audio gain (`bcastAudio`) the captured audio is
+    // passed through before recording. The broadcaster's own voice is
+    // separate — it rides the always-on talk channel.
+    fileMuted: false,         // broadcast file-audio muted (gain 0)
+    fileVolume: 1,            // file-audio level in the broadcast (0..1)
     fileBlank: false,         // "Blank File Stream" — broadcast a black frame
-    mixer: null,
-    micStream: null,
+    filePauseIntended: false, // the operator pressed Pause (vs. a stray pause
+                              // from the OS audio device reinitialising)
+    bcastAudio: null,         // {ctx, gain, dest, src} — file broadcast gain
     fileBlackTrack: null,
   };
 
@@ -156,43 +156,26 @@
     els.stopPreviewBtn.hidden = !hasStream || live || fileMode;
 
     // Mic-mute / cam-blank toggles — these are camera-mode controls only.
-    // In file mode they're hidden entirely (the file's own audio/video is
-    // managed via the talk-over mic and local monitor-mute instead).
+    // In file mode they're hidden entirely (the file's audio is managed by
+    // the level slider + mute beside the scrubber, video by Blank File Stream).
     setHidden(els.micBtn, fileMode);
     setHidden(els.camBtn, fileMode);
     els.micBtn.disabled = !hasStream;
     els.camBtn.disabled = !hasStream;
 
-    // Talk-over mic — only meaningful when broadcasting a video file,
-    // and only usable once a file is actually loaded.
-    if (els.talkMicBtn) {
-      setHidden(els.talkMicBtn, !fileMode);
-      els.talkMicBtn.disabled = !(fileMode && hasStream);
-    }
-    // Local monitor mute — silence the file on this device only. File
-    // mode only; usable once a file is loaded.
-    if (els.monitorMuteBtn) {
-      setHidden(els.monitorMuteBtn, !fileMode);
-      els.monitorMuteBtn.disabled = !(fileMode && hasStream);
-    }
-
-    // Video-file timeline scrubber — always shown in file mode, but greyed
-    // out until a file is actually loaded.
+    // Video-file timeline scrubber + file-audio level — shown in file mode,
+    // greyed out until a file is actually loaded.
     if (els.fileTransport) {
       setHidden(els.fileTransport, !fileMode);
       var fileLoaded = !!(state.fileEl && state.fileEl.duration);
       els.fileSeek.disabled = !(fileMode && fileLoaded);
+      var audioReady = fileMode && hasStream;
+      if (els.fileVolume) els.fileVolume.disabled = !audioReady;
+      if (els.fileMuteBtn) els.fileMuteBtn.disabled = !audioReady;
     }
 
     // Red border + LIVE chip on the preview frame.
     if (els.videoWrap) els.videoWrap.classList.toggle('is-live', live);
-  }
-
-  // True when the file audio mixer is the active broadcast audio source
-  // (file mode with a built mixer). The file-stream mute and talk-over
-  // mic act through the mixer's gains.
-  function mixerActive() {
-    return !!(state.mixer && state.source === 'file');
   }
 
   // SVG elements don't reliably implement the `hidden` IDL property
@@ -363,7 +346,7 @@
 
   // ── Preview / capture ────────────────────────────────────────────────
   function stopStream() {
-    // Tear down the file audio mixer + talk-over mic if active.
+    // Tear down file-mode audio / blank state if active.
     teardownFileAudio();
     // Drop the canvas-blank broadcast stream if active.
     if (state.blackBroadcastStream) {
@@ -410,12 +393,15 @@
     els.preview.style.opacity = '';
     setMicMuted(false);
     setCamOff(false);
+    // New source starts unmuted; keep the chosen file level. Re-sync the
+    // level slider + its mute button to the reset state.
+    syncFileVolumeUI();
+    syncFileMuteBtn();
     refreshControls();
     populateDevices();
-    // In file mode, (re)build the audio mixer so the admin can talk over
-    // the file. The preview/broadcast video is the file's own track.
+    // In file mode, apply the current file-audio level to the element.
     if (state.source === 'file') {
-      ensureFileMixer();
+      applyFileLevel();
       // Reflect the file's resolution class in the (disabled) Quality
       // dropdown so it reads e.g. "1080p" for a 1920-wide movie.
       if (state.fileEl && state.fileEl.videoWidth) {
@@ -533,214 +519,158 @@
     }
     // File mode: video is the file's own capture track (native resolution,
     // no canvas → no framerate cost), swapped for a black track when
-    // "Blank File Stream" is on. Audio is the mixer output (file audio +
-    // optional talk-over mic), or the raw file audio if no mixer yet.
+    // "Blank File Stream" is on. Audio is the broadcast-gain output (see
+    // ensureBcastAudio) so the operator's level/mute reaches viewers; before
+    // that gain exists we fall back to the raw captured audio track.
     var ms = new MediaStream();
     var vtrack = state.fileBlank && state.fileBlackTrack
       ? state.fileBlackTrack
       : (state.stream && state.stream.getVideoTracks()[0]);
     if (vtrack) ms.addTrack(vtrack);
-    var atrack = mixerActive() && state.mixer.dest
-      ? state.mixer.dest.stream.getAudioTracks()[0]
+    var atrack = (state.bcastAudio && state.bcastAudio.dest)
+      ? state.bcastAudio.dest.stream.getAudioTracks()[0]
       : (state.stream && state.stream.getAudioTracks()[0]);
     if (atrack) ms.addTrack(atrack);
     return ms;
   }
 
-  // ── File audio mixer + talk-over mic ─────────────────────────────────
+  // ── File broadcast-audio gain ────────────────────────────────────────
   //
-  // When broadcasting a video file the admin can mix their microphone
-  // into the file's audio so they can talk over it. This is audio-only:
-  // the broadcast video stays the file's own capture track (no canvas,
-  // no re-encode resize), so there is no framerate cost. The mixer is a
-  // small Web Audio graph whose single output track stays stable, which
-  // is why muting the file or toggling the mic is seamless — it never
-  // swaps the recorded audio track, so the live broadcast isn't cut.
+  // captureStream() carries the file's audio at full level and ignores the
+  // media element's own volume/muted, so turning the element down does NOT
+  // change what viewers get. To give the broadcaster a real "how loud does
+  // this go out" control — independent of each viewer's own volume slider —
+  // the captured audio is passed through a Web Audio gain and THAT is what
+  // MediaRecorder broadcasts:
   //
-  //   file audio ─► fileGain ─┐
-  //                           ├─► dest (one mixed track → broadcast)
-  //   admin mic  ─► micGain  ─┘
+  //   captureStream audio ─► src ─► gain ─► dest ─► recorder (viewers)
   //
-  // Neither gain is routed to audioCtx.destination: the operator already
-  // hears the file from the hidden file element, and monitoring their own
-  // mic would echo.
-
-  function buildFileMixer() {
-    if (state.mixer) return state.mixer;
+  // The gain is built inside the Go-Live click so its AudioContext starts
+  // "running" — one created off a user gesture starts suspended and would
+  // render silence (which is exactly what happened before). The broadcaster
+  // monitors via the element's own playback, whose volume we set to the same
+  // level (element volume is local-only, so it can't double-scale the
+  // broadcast) — so the two stay matched.
+  function ensureBcastAudio() {
+    if (state.bcastAudio) { resumeBcastAudio(); return state.bcastAudio; }
+    if (state.source !== 'file') return null;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
-    var audioCtx = new AC();
-    if (audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch (_) {} }
-    var dest = audioCtx.createMediaStreamDestination();
-    var fileGain = audioCtx.createGain();
-    var micGain  = audioCtx.createGain();
-    fileGain.connect(dest);
-    micGain.connect(dest);
-    state.mixer = {
-      audioCtx: audioCtx, dest: dest,
-      fileGain: fileGain, micGain: micGain,
-      fileSrc: null, micSrc: null,
-    };
-    connectMixerFileAudio();
-    if (state.micStream) connectMixerMicAudio();
-    applyMixerGains();
-    return state.mixer;
+    var ctx;
+    try { ctx = new AC(); } catch (_) { return null; }
+    var gain = ctx.createGain();
+    var dest = ctx.createMediaStreamDestination();
+    gain.connect(dest);
+    state.bcastAudio = { ctx: ctx, gain: gain, dest: dest, src: null };
+    connectBcastAudioSource();
+    resumeBcastAudio();
+    applyFileLevel();
+    return state.bcastAudio;
   }
-
-  function teardownFileMixer() {
-    var m = state.mixer;
+  // (Re)bind the gain's input to the current captured audio track. The
+  // captureStream's audio track is only populated once the file has actually
+  // played, and is replaced on each play, so this re-runs after every
+  // (re)capture.
+  function connectBcastAudioSource() {
+    var m = state.bcastAudio;
     if (!m) return;
-    try { if (m.fileSrc) m.fileSrc.disconnect(); } catch (_) {}
-    try { if (m.micSrc)  m.micSrc.disconnect();  } catch (_) {}
-    try { m.audioCtx.close(); } catch (_) {}
-    state.mixer = null;
-  }
-
-  function connectMixerFileAudio() {
-    var m = state.mixer;
-    if (!m) return;
-    if (m.fileSrc) { try { m.fileSrc.disconnect(); } catch (_) {} m.fileSrc = null; }
+    if (m.src) { try { m.src.disconnect(); } catch (_) {} m.src = null; }
     var atrack = state.stream && state.stream.getAudioTracks()[0];
     if (!atrack) return;
-    m.fileSrc = m.audioCtx.createMediaStreamSource(new MediaStream([atrack]));
-    m.fileSrc.connect(m.fileGain);
+    try {
+      m.src = m.ctx.createMediaStreamSource(new MediaStream([atrack]));
+      m.src.connect(m.gain);
+    } catch (_) {}
   }
-
-  function connectMixerMicAudio() {
-    var m = state.mixer;
+  function resumeBcastAudio() {
+    var m = state.bcastAudio;
+    if (m && m.ctx.state === 'suspended') { try { m.ctx.resume(); } catch (_) {} }
+  }
+  function teardownBcastAudio() {
+    var m = state.bcastAudio;
     if (!m) return;
-    if (m.micSrc) { try { m.micSrc.disconnect(); } catch (_) {} m.micSrc = null; }
-    var atrack = state.micStream && state.micStream.getAudioTracks()[0];
-    if (!atrack) return;
-    m.micSrc = m.audioCtx.createMediaStreamSource(new MediaStream([atrack]));
-    m.micSrc.connect(m.micGain);
+    try { if (m.src) m.src.disconnect(); } catch (_) {}
+    try { m.ctx.close(); } catch (_) {}
+    state.bcastAudio = null;
   }
 
-  function applyMixerGains() {
-    var m = state.mixer;
-    if (!m) return;
-    m.fileGain.gain.value = state.fileMuted ? 0 : 1;
-    m.micGain.gain.value  = state.talkOn ? 1 : 0;
+  // Apply the current file level to BOTH the broadcast (gain → viewers) and
+  // the broadcaster's own monitor (the element's local playback). Mute is a
+  // gain/volume of 0. The two are set from the same value so the operator
+  // hears what viewers get; viewers still scale it further with their own
+  // volume control.
+  function applyFileLevel() {
+    var level = state.fileMuted ? 0 : Math.max(0, Math.min(1, state.fileVolume));
+    if (state.bcastAudio) state.bcastAudio.gain.gain.value = level;
+    if (state.fileEl) { state.fileEl.muted = false; state.fileEl.volume = level; }
   }
 
-  // Local monitor mute: mute the file's audio on the broadcaster's own
-  // machine only. This sets the hidden <video> element's `muted` flag,
-  // which silences local playback but does NOT affect the captureStream
-  // audio track the mixer broadcasts — so viewers keep hearing the file.
-  function setFileLocalMute(muted) {
-    state.fileLocalMuted = !!muted;
-    if (state.fileEl) state.fileEl.muted = state.fileLocalMuted;
-    syncMonitorBtn();
+  // Set the file-audio level in the broadcast (0..1). Seamless: it's just the
+  // media element's volume, which the captureStream carries live. A positive
+  // level implies "not muted"; zero is a mute (kept distinct from `fileVolume`
+  // so the mute button can restore the previous level).
+  function setFileVolume(vol) {
+    vol = Math.max(0, Math.min(1, vol));
+    state.fileVolume = vol;
+    state.fileMuted = vol === 0;
+    applyFileLevel();
+    syncFileVolumeUI();
+    syncFileMuteBtn();
   }
-  function syncMonitorBtn() {
-    if (!els.monitorMuteBtn) return;
-    var m = state.fileLocalMuted;
-    els.monitorMuteBtn.classList.toggle('is-off', m);
-    setHidden(els.monitorMuteBtn.querySelector('.ico-on'),  m);
-    setHidden(els.monitorMuteBtn.querySelector('.ico-off'), !m);
-    els.monitorMuteBtn.setAttribute('aria-pressed', String(m));
-    els.monitorMuteBtn.title = m
-      ? 'Unmute file audio on this device'
-      : 'Mute file audio on this device (viewers still hear it)';
-    els.monitorMuteBtn.setAttribute('aria-label', els.monitorMuteBtn.title);
+  // The displayed level: 0 while muted, otherwise the chosen volume.
+  function effectiveFileLevelPct() {
+    return state.fileMuted ? 0 : Math.round(state.fileVolume * 100);
   }
-
-  // Capture the talk-over mic. AEC / noise-suppression / AGC are OFF on
-  // purpose: enabling echo cancellation re-binds the audio OUTPUT device
-  // for AEC, which briefly glitches the file's playback (and therefore
-  // the broadcast). The broadcaster is talking over a file, not on a
-  // call, so none of that processing is needed. Use headphones to avoid
-  // the mic picking up the file's audio from speakers.
-  function acquireTalkMic() {
-    var mic = els.micSel.value;
-    return navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: mic ? { exact: mic } : undefined,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-      video: false,
-    });
-  }
-
-  // Capture the mic up front (muted) so it's hot and ready before the
-  // user ever unmutes. Calling getUserMedia mid-playback can stall the
-  // decoding file element (and thus the broadcast video) for a beat —
-  // doing it now, fire-and-forget, keeps the unmute itself instant.
-  // Best-effort: if it fails/denied, toggleTalk lazily acquires later.
-  function prewarmTalkMic() {
-    if (state.micStream || state.source !== 'file') return;
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    acquireTalkMic().then(function (ms) {
-      if (state.source !== 'file' || state.micStream) {
-        ms.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
-        return;
-      }
-      state.micStream = ms;
-      buildFileMixer();                 // no-op if already built
-      connectMixerMicAudio();
-      applyMixerGains();                // talkOn is false → mic stays muted
-      syncTalkBtn();
-    }).catch(function () { /* denied — toggleTalk will prompt on first click */ });
-  }
-
-  // The talk-over mic toggle. The broadcast audio is ALWAYS the mixer's
-  // output track, so muting/unmuting is only a gain change — it never
-  // swaps the recorded track, restarts the encoder, or calls getUserMedia
-  // (once the mic is captured), so it can't interrupt the stream.
-  function toggleTalk() {
-    if (state.source !== 'file') return;
-
-    if (state.talkOn) {                 // → mute (keep the mic captured)
-      state.talkOn = false;
-      applyMixerGains();
-      syncTalkBtn();
-      return;
+  function syncFileVolumeUI() {
+    if (!els.fileVolume) return;
+    var pct = effectiveFileLevelPct();
+    if (parseInt(els.fileVolume.value, 10) !== pct) {
+      els.fileVolume.value = String(pct);
     }
-    if (state.micStream) {              // → unmute, mic already hot: pure gain
-      state.talkOn = true;
-      applyMixerGains();
-      syncTalkBtn();
-      return;
-    }
-    // Mic not pre-warmed yet (e.g. unmuting during preview before going
-    // live, or permission not yet granted). Acquire it now — this one
-    // call may stall briefly; every unmute afterwards is a pure gain flip.
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('This browser cannot access the microphone.');
-      return;
-    }
-    els.talkMicBtn.disabled = true;     // guard against double-click mid-acquire
-    acquireTalkMic().then(function (ms) {
-      els.talkMicBtn.disabled = false;
-      if (state.source !== 'file') {    // source changed while prompt was open
-        ms.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
-        return;
-      }
-      state.micStream = ms;
-      buildFileMixer();                 // no-op if already built
-      connectMixerMicAudio();
-      state.talkOn = true;
-      applyMixerGains();
-      syncTalkBtn();
-    }).catch(function (err) {
-      els.talkMicBtn.disabled = false;
-      handleAcquireError(err);
-    });
+  }
+  function syncFileMuteBtn() {
+    if (!els.fileMuteBtn) return;
+    var muted = state.fileMuted || state.fileVolume === 0;
+    setHidden(els.fileMuteBtn.querySelector('.ico-on'), muted);
+    setHidden(els.fileMuteBtn.querySelector('.ico-off'), !muted);
+    els.fileMuteBtn.classList.toggle('is-off', muted);
+    els.fileMuteBtn.setAttribute('aria-pressed', String(muted));
+    els.fileMuteBtn.title = muted
+      ? 'Unmute file audio in the broadcast'
+      : 'Mute file audio in the broadcast';
+    els.fileMuteBtn.setAttribute('aria-label', els.fileMuteBtn.title);
   }
 
-  function syncTalkBtn() {
-    if (!els.talkMicBtn) return;
-    var on = state.talkOn;
-    els.talkMicBtn.classList.toggle('is-on', on);
-    setHidden(els.talkMicBtn.querySelector('.ico-on'),  !on);
-    setHidden(els.talkMicBtn.querySelector('.ico-off'),  on);
-    els.talkMicBtn.setAttribute('aria-pressed', String(on));
-    els.talkMicBtn.title = on
-      ? 'Stop talking over file (mute mic)'
-      : 'Talk over file (unmute mic)';
-    els.talkMicBtn.setAttribute('aria-label', els.talkMicBtn.title);
+  // Slide the level control to a target percentage (0..100) so a mute/unmute
+  // visibly "drops" or "raises" the slider rather than snapping.
+  var fileVolAnim = null;
+  function animateFileVolumeTo(targetPct) {
+    if (!els.fileVolume) return;
+    if (fileVolAnim) { cancelAnimationFrame(fileVolAnim); fileVolAnim = null; }
+    var startPct = parseFloat(els.fileVolume.value);
+    if (isNaN(startPct)) { els.fileVolume.value = String(targetPct); return; }
+    var startT = performance.now();
+    var dur = 200;
+    function step(now) {
+      var t = Math.min(1, (now - startT) / dur);
+      // ease-out so it settles gently at the end
+      var eased = 1 - Math.pow(1 - t, 3);
+      els.fileVolume.value = String(Math.round(startPct + (targetPct - startPct) * eased));
+      if (t < 1) fileVolAnim = requestAnimationFrame(step);
+      else fileVolAnim = null;
+    }
+    fileVolAnim = requestAnimationFrame(step);
+  }
+
+  // The broadcast-audio mute toggle beside the level slider. Muting slides
+  // the level down to zero; unmuting slides it back up to the prior level.
+  function toggleFileMute() {
+    state.fileMuted = !state.fileMuted;
+    // A mute with the level already at zero has nowhere to restore to.
+    if (!state.fileMuted && state.fileVolume === 0) state.fileVolume = 1;
+    applyFileLevel();
+    syncFileMuteBtn();
+    animateFileVolumeTo(effectiveFileLevelPct());
   }
 
   // Blank / unblank the file video for the broadcast (preview dims too).
@@ -763,24 +693,10 @@
     scheduleEncoderRestart();
   }
 
-  // Build / refresh the file mixer for the current file. Called when a
-  // file is applied as the source.
-  function ensureFileMixer() {
-    if (state.source !== 'file') return;
-    if (!state.mixer) buildFileMixer();
-    else connectMixerFileAudio();
-    applyMixerGains();
-  }
-
-  // Tear down all file-mode audio (mixer + mic) and blank state. Used
-  // when stopping the stream or switching away from the file source.
+  // Tear down file-mode audio/blank state. Used when stopping the stream or
+  // switching away from the file source.
   function teardownFileAudio() {
-    state.talkOn = false;
-    if (state.micStream) {
-      state.micStream.getTracks().forEach(function (t) { try { t.stop(); } catch (_) {} });
-      state.micStream = null;
-    }
-    teardownFileMixer();
+    teardownBcastAudio();
     if (state.fileBlackTrack) {
       try { state.fileBlackTrack.stop(); } catch (_) {}
       state.fileBlackTrack = null;
@@ -788,7 +704,6 @@
     state.fileMuted = false;
     state.fileBlank = false;
     if (els.preview) els.preview.style.opacity = '';
-    syncTalkBtn();
   }
 
   // ── File source ──────────────────────────────────────────────────────
@@ -831,18 +746,29 @@
     // captured stream. The preview's pause overlay covers the brief
     // window where the preview's <video> may render nothing.
     v.addEventListener('play', function () {
+      state.filePauseIntended = false;
       refreshControls();                // sync the Play/Pause button label
       togglePausedOverlay();
       refreshFileCapture();             // fresh, active tracks
       // captureStream's video track changes on every play, so restart the
-      // encoder to pick it up (the mixer's audio track is stable across
-      // this, so talk-over survives the restart).
+      // encoder to pick it up (refreshFileCapture already refreshed the
+      // file's audio track too).
       if (state.isLive) {
         scheduleEncoderRestart();
         socket.emit('bcast:paused', { paused: false });   // viewers: hide overlay
       }
     });
     v.addEventListener('pause', function () {
+      // A pause the operator didn't ask for — e.g. the OS audio device
+      // reinitialising when they toggle their microphone can briefly pause a
+      // playing media element — should never blip the broadcast to "Paused".
+      // Transparently resume if we're still live with content remaining.
+      if (!state.filePauseIntended && state.isLive && !v.ended) {
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+        return;
+      }
+      state.filePauseIntended = false;
       refreshControls();                // sync the Play/Pause button label
       togglePausedOverlay();
       // Halt the encoder cleanly so it doesn't emit malformed chunks
@@ -894,7 +820,10 @@
     state.fileUrl = URL.createObjectURL(file);
     v.src = state.fileUrl;
     v.loop = !!els.fileLoop.checked;
-    v.muted = state.fileLocalMuted;   // honor the local monitor-mute choice
+    // Level lives on the element (see applyFileLevel) — shared by the
+    // broadcast (via captureStream) and the broadcaster's own monitor.
+    v.muted = false;
+    v.volume = state.fileMuted ? 0 : Math.max(0, Math.min(1, state.fileVolume));
     els.filePickText.textContent = file.name;
     els.filePickText.title = file.name;
 
@@ -939,8 +868,8 @@
     try {
       var fresh = state.fileEl.captureStream();
       state.stream = fresh;
-      // Rebind the mixer's file-audio source to the fresh capture track.
-      if (mixerActive()) connectMixerFileAudio();
+      // Rebind the broadcast-audio gain to the fresh captured audio track.
+      if (state.bcastAudio) connectBcastAudioSource();
       // Keep the preview on the file (unless the cam-blank canvas path is
       // showing for camera mode, which never applies in file mode).
       // Reassigning srcObject does NOT re-fire the element's autoplay, so
@@ -1045,7 +974,6 @@
     // swap applyStream already reset the muted/blank state to false.
     setMicMuted(false);
     setCamOff(false);
-    syncTalkBtn();
   }
 
   // Single entry point for getUserMedia. Used by both the manual Start
@@ -1236,17 +1164,17 @@
     // video and audio tracks. Otherwise viewers get a silent broadcast.
     if (state.source === 'file' && state.fileEl) {
       var v = state.fileEl;
-      // Make sure the broadcast audio is the mixer's (stable) track from
-      // the first frame, so a later talk-over unmute is just a gain flip.
-      ensureFileMixer();
-      // Pre-warm the mic now (file still paused → getUserMedia won't stall
-      // playback) so unmuting later never has to call getUserMedia.
-      prewarmTalkMic();
+      // Build the broadcast-audio gain now, INSIDE the Go-Live click, so its
+      // AudioContext starts "running" rather than suspended (→ silent). Then
+      // apply the current level to it and the local monitor.
+      ensureBcastAudio();
+      applyFileLevel();
       var send = function () {
         // After play(), splice the audio track into the combined stream
         // so MediaRecorder (about to be constructed by the bcast:started
         // response) sees both video (canvas) and audio (file) tracks.
         refreshFileCapture();
+        connectBcastAudioSource();   // bind the gain to the fresh audio track
         refreshControls();   // flip the primary button to "Pause"
         socket.emit('bcast:start', { mime: mime, meta: trackMeta(), lock: lockPayload() });
       };
@@ -1373,6 +1301,7 @@
     // stopped sharing.
     if (state.source === 'file' && state.fileEl &&
         !state.fileEl.paused && !state.fileEl.ended) {
+      state.filePauseIntended = true;   // stopping the stream pauses on purpose
       try { state.fileEl.pause(); } catch (_) {}
     }
   }
@@ -1400,6 +1329,7 @@
           console.error('file play() failed:', err);
         });
       } else {
+        state.filePauseIntended = true;   // a deliberate Pause
         v.pause();
       }
       return;
@@ -2496,8 +2426,7 @@
   function resetSessionToDefault() {
     // Stop the broadcast + release media, clear the file, back to the
     // default video-file source. stopStream()/setSource() run
-    // teardownFileAudio(), which stops the talk-over mic + mixer and
-    // resets the file mute/blank flags.
+    // teardownFileAudio(), which resets the file mute/blank flags.
     stopLive();
     stopStream();
     teardownFileSource();
@@ -2513,12 +2442,11 @@
     // Toggle states → defaults (mic/cam live, nothing muted/blanked).
     state.fileMuted = false;
     state.fileBlank = false;
-    state.fileLocalMuted = false;
+    state.fileVolume = 1;
     if (state.fileEl) state.fileEl.muted = false;
     setMicMuted(false);
     setCamOff(false);
-    syncTalkBtn();
-    syncMonitorBtn();
+    setFileVolume(1);
     refreshControls();
 
     // Forget the remembered source/encoding settings so a refresh after
@@ -2588,24 +2516,14 @@
   syncBitrateUI();
   refreshControls();
   syncLibraryBtn();
-  syncTalkBtn();
-  syncMonitorBtn();
+  syncFileVolumeUI();
+  syncFileMuteBtn();
 
   els.micBtn.addEventListener('click', function () {
     if (els.micBtn.disabled) return;
-    // File mode → "Mute File Stream" toggles the file's audio. Via the
-    // mixer gain when present (seamless), else the raw track's enabled.
-    if (state.source === 'file') {
-      state.fileMuted = !state.fileMuted;
-      if (mixerActive()) {
-        applyMixerGains();
-      } else {
-        var a = state.stream && state.stream.getAudioTracks()[0];
-        if (a) a.enabled = !state.fileMuted;
-      }
-      setMicMuted(state.fileMuted);
-      return;
-    }
+    // micBtn is the camera microphone mute; it's hidden in file mode (where
+    // the file-audio level lives on the slider + its mute button instead).
+    if (state.source === 'file') return;
     if (!state.stream) return;
     var tracks = state.stream.getAudioTracks();
     if (!tracks.length) return;
@@ -2635,15 +2553,28 @@
     scheduleEncoderRestart();
   });
 
-  // ── Talk-over mic (file mode) ─────────────────────────────────────────
-  els.talkMicBtn.addEventListener('click', function () {
-    if (els.talkMicBtn.disabled) return;
-    toggleTalk();
+  // Safety net: if the broadcast-audio context ever lands suspended, resume
+  // it on the operator's first interaction so it can never render silence.
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, resumeBcastAudio, { passive: true });
   });
-  if (els.monitorMuteBtn) {
-    els.monitorMuteBtn.addEventListener('click', function () {
-      if (els.monitorMuteBtn.disabled) return;
-      setFileLocalMute(!state.fileLocalMuted);
+
+  // ── File-audio level (file mode) ──────────────────────────────────────
+  // Turn the shared file down when it's drowning out the participants'
+  // microphones — the broadcast-audio gain, independent of each viewer's
+  // own volume slider.
+  if (els.fileVolume) {
+    els.fileVolume.addEventListener('input', function () {
+      if (els.fileVolume.disabled) return;
+      var pct = parseInt(els.fileVolume.value, 10);
+      if (isNaN(pct)) pct = 100;
+      setFileVolume(pct / 100);
+    });
+  }
+  if (els.fileMuteBtn) {
+    els.fileMuteBtn.addEventListener('click', function () {
+      if (els.fileMuteBtn.disabled) return;
+      toggleFileMute();
     });
   }
   if (els.kickBtn) {
