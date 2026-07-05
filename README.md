@@ -135,7 +135,7 @@ image:
 # docker-compose.yml
 services:
   viibestream:
-    image: hyprlab/viibestream:latest   # or pin a version, e.g. :0.2.3
+    image: hyprlab/viibestream:latest   # or pin a version, e.g. :0.2.4
     container_name: viibestream
     restart: unless-stopped
     env_file:
