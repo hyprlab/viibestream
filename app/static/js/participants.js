@@ -125,6 +125,15 @@
     nameWrap.appendChild(name);
     nameWrap.appendChild(status);
 
+    // Rename (host only): a pencil that turns the name into an inline input.
+    var renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'participants-rename';
+    renameBtn.innerHTML = PENCIL;
+    renameBtn.title = 'Rename ' + u.name;
+    renameBtn.setAttribute('aria-label', 'Rename ' + u.name);
+    renameBtn.addEventListener('click', function () { beginRename(row, u.sid); });
+
     var muteBtn = document.createElement('button');
     muteBtn.type = 'button';
     muteBtn.className = 'participants-mute';
@@ -143,9 +152,80 @@
 
     row.appendChild(emoji);
     row.appendChild(nameWrap);
+    row.appendChild(renameBtn);
     row.appendChild(muteBtn);
     return row;
   }
+
+  var PENCIL =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>';
+
+  // Inline rename: swap the name for a text input pre-filled with the current
+  // name. Enter / blur commits (emits chat:moderate_rename — the server
+  // validates and, on success, pushes a fresh chat:roster that re-renders the
+  // row); Escape cancels. On failure the roster is unchanged and a toast
+  // explains why (see chat:mod_error).
+  function beginRename(row, sid) {
+    var u = find(sid);
+    if (!u || row.querySelector('.participants-rename-input')) return;
+    var nameWrap = row.querySelector('.participants-name-wrap');
+    var nameEl = nameWrap && nameWrap.querySelector('.participants-name');
+    var statusEl = nameWrap && nameWrap.querySelector('.participants-status');
+    if (!nameWrap) return;
+
+    row.classList.add('is-renaming');
+    if (nameEl) nameEl.style.display = 'none';
+    if (statusEl) statusEl.style.display = 'none';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'participants-rename-input';
+    input.maxLength = 24;
+    input.value = u.name;
+    nameWrap.appendChild(input);
+    input.focus();
+    input.select();
+
+    var done = false;
+    function finish(commit) {
+      if (done) return;
+      done = true;
+      var val = (input.value || '').trim();
+      if (commit && val && val !== u.name) {
+        socket.emit('chat:moderate_rename', { sid: sid, name: val });
+      }
+      row.classList.remove('is-renaming');
+      if (input.parentNode) input.parentNode.removeChild(input);
+      if (nameEl) nameEl.style.display = '';
+      if (statusEl) statusEl.style.display = '';
+    }
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', function () { finish(true); });
+  }
+
+  // Transient error toast (e.g. a rename rejected as a duplicate name).
+  var toastTimer = null;
+  function showPanelError(msg) {
+    if (!panelEl) return;
+    var t = document.getElementById('participants-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'participants-toast';
+      t.className = 'participants-toast';
+      panelEl.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('is-visible');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('is-visible'); }, 3200);
+  }
+  socket.on('chat:mod_error', function (info) {
+    if (info && info.message) showPanelError(info.message);
+  });
 
   function render() {
     if (countEl) countEl.textContent = String(roster.length);

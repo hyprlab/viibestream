@@ -8,7 +8,11 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.2.3 — 2026-07-05 (latest) — Group voice & broadcast audio
+## 0.2.4 — 2026-07-05 (latest) — Rename participants
+
+- **Rename anyone in the room.** As the broadcaster, hover a participant in the **Participants** panel and click the pencil to give them a new screen name — handy for tidying up duplicates or cleaning up an inappropriate handle. The new name updates everywhere and sticks for that person even if they reload.
+
+## 0.2.3 — 2026-07-05 — Group voice & broadcast audio
 
 - **Talk while you watch — always on.** Voice chat no longer depends on the video: you and your viewers can keep talking whether the file is playing, paused, or stopped. Pausing the stream no longer cuts the conversation.
 - **You're in the room too.** The broadcaster now appears at the top of the **Participants** panel with their own mic button, and the row lights up when you're speaking — just like everyone else. (Use headphones so your mic doesn't echo the movie.)

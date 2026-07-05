@@ -11,6 +11,21 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-07-05
+
+### Added
+
+- **Broadcaster can rename a participant** (`app/chat/events.py`,
+  `app/chat/state.py::rename`, `app/static/js/participants.js`). Each
+  Participants row gains a pencil that turns the name into an inline input
+  (Enter/blur commits, Escape cancels). A host-only `chat:moderate_rename`
+  event validates the name (2–24 chars, unique) and, on success, pushes
+  `chat:user_updated` to the chat room + a fresh `chat:roster` to the panel;
+  the renamed viewer's own client updates its identity and localStorage so the
+  name sticks across reconnects. Duplicate/invalid names surface a transient
+  toast via `chat:mod_error`. No system message is posted — renaming is often
+  used to clean up an offensive handle, so it's applied silently.
+
 ## [0.2.3] — 2026-07-05
 
 ### Added

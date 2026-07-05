@@ -373,6 +373,38 @@ def _chat_moderate_delete(payload):
     socketio.emit("chat:message_removed", {"id": msg_id}, to=BROADCASTERS_ROOM)
 
 
+_RENAME_ERRORS = {
+    "not_joined": "That participant is no longer here.",
+    "invalid_name": "Enter a name of at least 2 characters.",
+    "name_taken": "That name is already taken.",
+}
+
+
+@socketio.on("chat:moderate_rename")
+def _chat_moderate_rename(payload):
+    """Broadcaster renames a participant. Host-only.
+
+    We deliberately do NOT post a "renamed" system line: a common reason to
+    rename someone is to clean up an offensive handle, and echoing it back to
+    the room would defeat the point. The change propagates silently via
+    chat:user_updated (which also refreshes the participant's own identity and
+    their saved localStorage name) and the broadcaster roster."""
+    if not _require_moderator():
+        return
+    payload = payload or {}
+    target_sid = payload.get("sid")
+    name = payload.get("name", "")
+    if not target_sid:
+        return
+    user, err, old_name = chat_state.rename(target_sid, name)
+    if err:
+        emit("chat:mod_error", {"message": _RENAME_ERRORS.get(err, "Could not rename.")})
+        return
+    socketio.emit("chat:user_updated", user.public(), to=CHAT_ROOM)
+    socketio.emit("chat:roster", chat_state.roster_admin(), to=BROADCASTERS_ROOM)
+    current_app.logger.info("Host renamed %s to %s", old_name, user.name)
+
+
 @socketio.on("chat:moderate_enable")
 def _chat_moderate_enable(payload):
     if not _require_moderator():

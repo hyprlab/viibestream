@@ -443,6 +443,26 @@ class ChatState:
             user.emoji = emoji
             return (user, "", old_name)
 
+    def rename(self, sid: str, name: str) -> tuple[ChatUser | None, str, str]:
+        """Host renames a participant (name only; the name-derived color is
+        refreshed, the emoji is kept). Returns (user, error_code, old_name).
+        error_code is "" on success; on failure one of "not_joined",
+        "invalid_name", "name_taken"."""
+        with self._s._lock:
+            user = self._s.users.get(sid)
+            if not user:
+                return (None, "not_joined", "")
+            clean = self._clean_name(name)
+            if len(clean) < self.NAME_MIN:
+                return (None, "invalid_name", "")
+            for esid, u in self._s.users.items():
+                if esid != sid and u.name.lower() == clean.lower():
+                    return (None, "name_taken", "")
+            old_name = user.name
+            user.name = clean
+            user.color = _color_for(clean)
+            return (user, "", old_name)
+
     def post(self, sid: str, text: str, reply_to: int | None = None) -> ChatMessage | None:
         with self._s._lock:
             user = self._s.users.get(sid)
