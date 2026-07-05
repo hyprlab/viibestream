@@ -11,6 +11,55 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-07-05
+
+### Added
+
+- **Group voice is now an always-on channel** independent of the file stream
+  (`app/static/js/talk.js`, `app/chat/events.py`). The broadcaster joins the
+  voice channel as a participant: their mic control moved out of the preview
+  pane into its own **Host** row at the top of the Participants panel, with the
+  same reactive "speaking" highlight as everyone else. Host voice frames bypass
+  the participant-audio gate and can't be muted (`_talk_frame`), and the host
+  captures with echo-cancellation off (headphones expected). The broadcaster's
+  mic no longer runs through the file mixer, so talking works whether or not a
+  file is playing/paused/stopped.
+- **Broadcast file-audio level + mute** beside the scrubber
+  (`templates/admin/stream.html`, `stream-broadcaster.js`). A Web Audio gain on
+  the file's captured audio lets the broadcaster set how loud the shared file
+  goes out — independent of each viewer's own volume — because `captureStream()`
+  ignores the media element's `volume`/`muted`. The gain is built inside the
+  Go-Live click so its `AudioContext` starts *running* (one created off a
+  gesture starts suspended and renders silence), with a gesture-based resume
+  safety net. The broadcaster's own monitor is set to the same level.
+
+### Changed
+
+- **Pausing the stream no longer mutes the viewer's audio**
+  (`stream-viewer.js::setPaused`). The "Paused" overlay + video blank remain,
+  but the player is no longer force-muted, so voice conversations continue
+  while the file is paused.
+- **The viewer stream now defaults to unmuted** (`templates/public/viewer.html`,
+  `stream-viewer.js`). The `<video>` drops the `muted` attribute; `tryAutoplay`
+  attempts sound first and falls back to muted playback + the "click for sound"
+  badge only if the browser blocks autoplay-with-sound. The volume slider now
+  honestly reads **down** when muted.
+- **The reaction control is a labelled "🤣 Reactions" button** (brand-yellow
+  outline on a transparent background) on both the viewer control bar and the
+  broadcaster preview. Shared styles moved to `chat.css`.
+- **A stray media-element pause no longer blips the broadcast to "Paused"**
+  (`stream-broadcaster.js`). Toggling the mic can make the OS reinitialise the
+  audio device and briefly pause the file element; the broadcaster now
+  distinguishes a deliberate Pause from a stray one and transparently resumes
+  the latter.
+
+### Removed
+
+- **The "Mute file audio on this device" (local monitor-mute) button**
+  (`templates/admin/stream.html`, `stream-broadcaster.js`). The broadcaster
+  monitors at the same level they broadcast, so a separate local mute is no
+  longer needed.
+
 ## [0.2.2] — 2026-07-04
 
 ### Changed

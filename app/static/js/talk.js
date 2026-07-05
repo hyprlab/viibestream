@@ -101,9 +101,34 @@
     srcRate: 48000,
   };
 
-  var btn = document.getElementById('chat-talk-btn');
+  // The local user's own mic control. On the viewer page it's the mic button
+  // in the chat composer; on the broadcaster page it's the host's own row in
+  // the Participants panel (so the broadcaster sits in the roster like anyone
+  // else, with a reactive speaking highlight).
+  var btn = document.getElementById(IS_HOST ? 'host-mic-btn' : 'chat-talk-btn');
   var icoMic = btn ? btn.querySelector('.ico-mic') : null;
   var icoMicOff = btn ? btn.querySelector('.ico-mic-off') : null;
+
+  // Host-row pieces (broadcaster page only).
+  var hostRow = document.getElementById('host-row');
+  var hostNameEl = document.getElementById('host-name');
+  var hostEmojiEl = document.getElementById('host-emoji');
+  var hostMe = null;   // {name, emoji, …} from the chat identity, once joined
+
+  // Inline mic glyphs for the host row (matches the participant rows'
+  // green-live / red-slashed styling in participants.js).
+  var MIC_ON =
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>' +
+    '<path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>';
+  var MIC_OFF =
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<line x1="1" y1="1" x2="23" y2="23"/>' +
+    '<path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>' +
+    '<path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/>' +
+    '<line x1="12" y1="19" x2="12" y2="23"/></svg>';
 
   function setIcon(showOff) {
     if (icoMic) { if (showOff) icoMic.setAttribute('hidden', ''); else icoMic.removeAttribute('hidden'); }
@@ -150,15 +175,25 @@
 
   function startCapture() {
     // cap.muted is cleared by the caller (self-unmute) before we get here.
-    if (IS_HOST || cap.on || !cap.joined || !cap.audioEnabled) return;
+    // The host is exempt from the global audio gate — their voice is an
+    // always-on channel they alone control.
+    if (cap.on || !cap.joined) return;
+    if (!IS_HOST && !cap.audioEnabled) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setBtnState('error', 'Microphone not supported in this browser');
       return;
     }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { setBtnState('error', 'Audio not supported in this browser'); return; }
+    // Host mic: AEC/NS/AGC OFF. Echo cancellation re-binds the audio OUTPUT
+    // device, which briefly glitches the file's playback (and thus the
+    // broadcast); the broadcaster is expected to wear headphones. Viewers,
+    // who are on a call-like experience, keep the processing on.
+    var audioConstraints = IS_HOST
+      ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
     navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      audio: audioConstraints,
     }).then(function (stream) {
       // A late mute (or leave) could have landed while permission was pending.
       if (cap.muted || !cap.joined) {
@@ -230,8 +265,33 @@
     if (btn && title) btn.title = title;
   }
 
+  // The host's own row in the Participants panel. Green live mic when their
+  // mic is on, red slashed when off, and the row glows while they speak —
+  // mirroring how a participant's row reacts. Hidden until they've joined
+  // chat (which the broadcaster page does automatically).
+  function updateHostRow() {
+    if (!btn || !hostRow) return;
+    if (!cap.joined) { hostRow.setAttribute('hidden', ''); return; }
+    hostRow.removeAttribute('hidden');
+    if (hostMe) {
+      if (hostNameEl && hostMe.name) hostNameEl.textContent = hostMe.name;
+      if (hostEmojiEl && hostMe.emoji) hostEmojiEl.textContent = hostMe.emoji;
+    }
+    var on = cap.on;
+    btn.innerHTML = on ? MIC_ON : MIC_OFF;
+    btn.classList.toggle('is-live', on);
+    btn.classList.toggle('is-muted', !on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.title = on
+      ? "You're live — click to turn your mic off"
+      : 'Turn your mic on so viewers and participants can hear you';
+    btn.setAttribute('aria-label', btn.title);
+    hostRow.classList.toggle('is-speaking', on && cap.speaking);
+  }
+
   function updateBtn() {
-    if (!btn || IS_HOST) return;
+    if (IS_HOST) { updateHostRow(); return; }
+    if (!btn) return;
     // Hidden entirely until the viewer joins the chat (no name = no voice).
     if (!cap.joined) {
       btn.setAttribute('hidden', '');
@@ -278,12 +338,23 @@
     });
   }
 
+  if (btn && IS_HOST) {
+    // The broadcaster's mic toggle — always theirs, independent of the file
+    // stream or the participant-audio gate.
+    btn.addEventListener('click', function () {
+      if (!cap.joined) return;
+      if (cap.on) stopCapture();
+      else startCapture();
+    });
+  }
+
   // Pick up the global participant-audio gate from the chat snapshot on
   // join / read-only watch, then keep it in sync on live toggles.
   function applyAudioSnapshot(info) {
     if (info && info.state && typeof info.state.audio_enabled === 'boolean') {
       cap.audioEnabled = info.state.audio_enabled;
-      if (!cap.audioEnabled && cap.on) stopCapture();
+      // The host's own mic isn't governed by the participant-audio gate.
+      if (!IS_HOST && !cap.audioEnabled && cap.on) stopCapture();
       updateBtn();
     }
   }
@@ -292,7 +363,7 @@
   socket.on('talk:audio_state', function (info) {
     if (!info || typeof info.enabled !== 'boolean') return;
     cap.audioEnabled = info.enabled;
-    if (!cap.audioEnabled && cap.on) stopCapture();
+    if (!IS_HOST && !cap.audioEnabled && cap.on) stopCapture();
     updateBtn();
   });
 
@@ -302,6 +373,7 @@
     var detail = e.detail || {};
     var wasJoined = cap.joined;
     cap.joined = !!detail.joined;
+    if (detail.me) hostMe = detail.me;   // name/emoji for the host row
     if (detail.me && typeof detail.me.muted === 'boolean') cap.muted = detail.me.muted;
     if (!cap.joined) {
       if (wasJoined) stopCapture();
@@ -313,6 +385,7 @@
   // The host (un)muted someone. If it's us, stop capturing immediately and
   // lock the button — there is no viewer-side unmute.
   socket.on('talk:muted', function (info) {
+    if (IS_HOST) return;                 // the host can't be muted
     if (!info || info.sid == null) return;
     if (info.sid !== socket.id) return;
     cap.muted = !!info.muted;
@@ -322,6 +395,7 @@
 
   // Host muted/unmuted everyone at once.
   socket.on('talk:mute_all', function (info) {
+    if (IS_HOST) return;                 // "mute all" never silences the host
     if (!info || typeof info.muted !== 'boolean') return;
     cap.muted = info.muted;
     if (cap.muted && cap.on) stopCapture();
@@ -336,6 +410,7 @@
   var unmuteAccept = document.getElementById('unmute-accept-btn');
   var unmuteDecline = document.getElementById('unmute-decline-btn');
   socket.on('talk:unmute_request', function () {
+    if (IS_HOST) return;                 // the host never receives an ask
     // The broadcaster is inviting us to turn our mic on. Show the prompt if
     // we're not already live and audio is on — covers both a host mute and a
     // mic we simply haven't switched on yet.

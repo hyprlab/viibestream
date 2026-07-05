@@ -83,10 +83,11 @@
       <!-- Send a reaction from the backend (rains over the preview + every
            viewer). Hidden when the broadcaster disables reactions. -->
       <div class="reaction-control" id="reaction-control" hidden>
-        <button type="button" class="btn-toggle" id="reaction-btn"
+        <button type="button" class="reaction-btn" id="reaction-btn"
                 title="Send a reaction" aria-label="Send a reaction"
                 aria-haspopup="true" aria-expanded="false">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          <span class="reaction-btn-emoji" aria-hidden="true">🤣</span>
+          <span class="reaction-btn-label">Reactions</span>
         </button>
         <div class="reaction-palette" id="reaction-palette" role="menu" hidden>
           <button type="button" class="reaction-palette-emoji" role="menuitem" data-emoji="🤣" aria-label="React laughing">🤣</button>
@@ -106,24 +107,10 @@
         </div>
       </div>
 
-      <!-- Talk-over microphone — only shown when broadcasting a video
-           file. Lets the admin mix their mic into the file's audio.
-           Audio-only: no camera, no canvas (so no framerate cost). -->
-      <button type="button" class="btn-toggle" id="talk-mic-btn" hidden
-              title="Talk over file (unmute mic)" aria-pressed="false"
-              aria-label="Talk over file (unmute mic)" disabled>
-        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V4a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-      </button>
-
-      <!-- Local monitor mute — silences the file's audio on THIS device
-           only (viewers still hear it). File mode only. -->
-      <button type="button" class="btn-toggle" id="monitor-mute-btn" hidden
-              title="Mute file audio on this device (viewers still hear it)"
-              aria-pressed="false" aria-label="Mute file audio on this device" disabled>
-        <svg class="ico-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        <svg class="ico-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-      </button>
+      <!-- The broadcaster's own microphone now lives in the Participants
+           panel (their own row), on the always-on voice channel — see
+           #host-row below. It is no longer mixed into the file stream, so
+           voice keeps working whether or not a file is playing. -->
 
       <!-- Video-file timeline scrubber for the loaded file, shown under the
            preview. Play/pause is the primary button. Greyed until a file
@@ -131,6 +118,22 @@
       <div class="file-transport-row file-transport-controls" id="file-transport">
         <input type="range" id="file-seek" class="slider file-seek" min="0" max="1000" step="1" value="0" disabled>
         <span id="file-time" class="file-time">0:00 / 0:00</span>
+        <!-- File-audio level in the broadcast. Turn the shared file down when
+             it's drowning out the participants' microphones. The mute button
+             sits to the left of the slider and, when clicked, slides the
+             level all the way down. -->
+        <div class="file-volume">
+          <button type="button" class="file-mute-btn" id="file-mute-btn" disabled
+                  title="Mute file audio in the broadcast" aria-pressed="false"
+                  aria-label="Mute file audio in the broadcast">
+            <svg class="ico-on" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            <svg class="ico-off" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          </button>
+          <input type="range" id="file-volume" class="slider file-volume-slider"
+                 min="0" max="100" step="1" value="100" disabled
+                 title="File audio volume in the broadcast"
+                 aria-label="File audio volume in the broadcast">
+        </div>
       </div>
 
       {% if current_user.is_admin() %}
@@ -437,6 +440,22 @@
         <svg class="ico-off" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
         <span class="participants-audio-label">Audio on</span>
       </button>
+    </div>
+    <!-- The broadcaster's own row. Their mic runs on the always-on voice
+         channel (talk.js), so it's independent of whether a file is
+         streaming; the row glows when they're speaking, just like a
+         participant's. Hidden until their chat identity lands (auto-join). -->
+    <div class="participants-self" id="participants-self">
+      <div class="participants-row participants-row-host" id="host-row" hidden>
+        <span class="participants-emoji" id="host-emoji">🎙️</span>
+        <div class="participants-name-wrap">
+          <span class="participants-name" id="host-name">You</span>
+          <span class="participants-status"></span>
+        </div>
+        <button type="button" class="participants-mute" id="host-mic-btn"
+                title="Turn your mic on so viewers and participants can hear you"
+                aria-label="Turn your mic on" aria-pressed="false"></button>
+      </div>
     </div>
     <div class="participants-list" id="participants-list" aria-live="polite"></div>
     <div class="participants-empty" id="participants-empty">No one has joined live chat yet.</div>

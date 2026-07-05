@@ -54,8 +54,6 @@
     mediaUrl: null,
     didInitialSeek: false,
     lastSnap: null,   // most recent stream:state for chip-refresh fallback
-    pausedMuteApplied: false,  // we force-muted because the broadcaster paused
-    muteBeforePause: false,    // the viewer's own mute choice, to restore on resume
     chatPinned: true,          // fullscreen overlay chat pinned (vs. auto-hide)
     chatMuted: false,          // suppress the @mention chat pop-in
   };
@@ -87,27 +85,17 @@
   // Show/hide the "Paused" overlay. Only meaningful while live — when the
   // stream is offline the OFF AIR overlay is shown instead.
   //
-  // The moment the broadcaster pauses we also BLANK the video and MUTE the
-  // audio, so the few seconds of buffered tail can't keep playing (and
-  // audibly) behind the Paused message. On resume we unblank and restore
-  // the viewer's own mute choice; the player picks up live again as fresh
-  // chunks arrive.
+  // The moment the broadcaster pauses we BLANK the video so the frozen last
+  // frame doesn't linger behind the Paused message. We deliberately do NOT
+  // touch the player's volume: voice chat runs on the always-on talk
+  // channel, and the paused file's audio stops on its own as its buffered
+  // tail drains — so muting here would only cut a conversation short.
   function setPaused(paused) {
     if (!els.pausedOL) return;
     var show = !!(paused && state.streamLive);
     els.pausedOL.hidden = !show;
     if (!els.player) return;
     els.player.classList.toggle('is-blanked', show);
-    if (show) {
-      if (!state.pausedMuteApplied) {
-        state.muteBeforePause = els.player.muted;   // remember their choice
-        state.pausedMuteApplied = true;
-      }
-      els.player.muted = true;
-    } else if (state.pausedMuteApplied) {
-      els.player.muted = state.muteBeforePause;      // restore on resume
-      state.pausedMuteApplied = false;
-    }
   }
 
   // Map a frame size to a standard quality class by its LARGER dimension,
@@ -595,12 +583,16 @@
     var p = els.player.play();
     if (!p || typeof p.catch !== 'function') return;
     p.catch(function (err) {
-      // Only surface the unmute badge for the real autoplay-policy
-      // rejection (NotAllowedError). Decode errors and aborted-pending
-      // loads are transient — the next chunk will retry naturally and
-      // shouldn't flash a UI prompt at the viewer.
+      // The stream defaults to UNMUTED so sound plays the moment it starts.
+      // Some browsers block autoplay-with-sound (NotAllowedError); in that
+      // case fall back to muted playback so the video still starts, and show
+      // the "click for sound" badge. Decode errors / aborted-pending loads
+      // are transient — the next chunk retries — so don't prompt for those.
       if (err && err.name === 'NotAllowedError') {
+        els.player.muted = true;                 // slider drops to 0 via volumechange
         els.unmuteBtn.hidden = false;
+        var p2 = els.player.play();
+        if (p2 && typeof p2.catch === 'function') p2.catch(function () {});
       }
     });
   }
@@ -622,9 +614,9 @@
     setHidden(els.muteBtn.querySelector('.ico-vol'),    muted);
     els.muteBtn.setAttribute('aria-pressed', String(muted));
   }
-  // Keep the volume slider in lockstep with the actual playback state:
-  // when muted (via the mute button, keyboard, or volume=0), the slider
-  // sits visually at zero so the UI is honest about the audio being off.
+  // Keep the volume slider honest: when the audio is muted (mute button,
+  // volume 0, or an autoplay fallback), the slider sits at zero so the UI
+  // never looks turned-up while silent.
   function updateVolumeSlider() {
     var effective = els.player.muted ? 0 : els.player.volume;
     if (parseFloat(els.volumeIn.value) !== effective) {

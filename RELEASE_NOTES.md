@@ -8,7 +8,15 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.2.2 — 2026-07-04 (latest) — Hyprlab rebrand
+## 0.2.3 — 2026-07-05 (latest) — Group voice & broadcast audio
+
+- **Talk while you watch — always on.** Voice chat no longer depends on the video: you and your viewers can keep talking whether the file is playing, paused, or stopped. Pausing the stream no longer cuts the conversation.
+- **You're in the room too.** The broadcaster now appears at the top of the **Participants** panel with their own mic button, and the row lights up when you're speaking — just like everyone else. (Use headphones so your mic doesn't echo the movie.)
+- **Control how loud the movie is.** A new volume slider and mute button sit next to the scrubber so you can turn the shared file down when it's drowning out people's microphones. This sets how loud it goes out to everyone — each viewer still controls their own volume on top.
+- **Sound on by default.** Viewers now start with the stream unmuted (with a one-click "sound" prompt if their browser blocks autoplay audio), and the volume slider finally shows *down* when it's actually muted.
+- **Friendlier reactions.** The reaction control is now a clear **🤣 Reactions** button on both the viewer and broadcaster.
+
+## 0.2.2 — 2026-07-04 — Hyprlab rebrand
 
 - **New home.** The project has moved to the **Hyprlab** account on both GitHub and Docker Hub (`hyprlab/viibestream`) — update your image and clone URLs accordingly.
 - **Refreshed About credit.** The **Settings → About** tab now shows the Hyprlab logo and links to [hyprlab.co](https://hyprlab.co).

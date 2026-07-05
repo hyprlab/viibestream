@@ -416,13 +416,17 @@ def _talk_frame(data):
     """Relay one PCM voice frame to every other chat participant. Dropped
     silently if the sender isn't a joined participant or has been muted."""
     sid = request.sid
-    # Global gate first: when the host has disabled participant audio, no one
-    # is heard regardless of their individual mute state.
-    if not chat_state.is_audio_enabled():
-        return
     user = chat_state.user(sid)
-    if user is None or user.muted:
+    if user is None:
         return
+    # The host's voice is an always-on channel: it rides through even when the
+    # host has disabled participant audio for everyone, and the host can't be
+    # muted. For everyone else the global gate and individual mute apply.
+    if not user.is_host:
+        if not chat_state.is_audio_enabled():
+            return
+        if user.muted:
+            return
     # Frames arrive as a raw binary ArrayBuffer; tolerate a {data: …} wrapper.
     if isinstance(data, dict):
         data = data.get("data")
