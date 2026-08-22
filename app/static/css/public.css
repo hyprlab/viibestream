@@ -38,6 +38,12 @@ body.public {
 }
 .public-brand-name { letter-spacing: -0.01em; }
 .public-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 0.5rem; }
+/* Phone-only affordances — the burger button, the version line inside the
+   burger sheet, and the chat sheet's collapse chevron. Desktop never
+   shows them; the phone media block below reveals and lays them out. */
+.menu-btn { display: none; }
+.menu-version { display: none; }
+.chat-collapse-btn { display: none; }
 
 /* ── Main player area ──────────────────────────────────────────────────── */
 .public-main {
@@ -57,15 +63,7 @@ body.public {
   flex-direction: column;
   gap: 0.5rem;
 }
-/* Only collapse to a single column on truly narrow screens (phones).
-   The page still permits scroll there since both panes can't fit
-   side by side. */
-@media (max-width: 48rem) {
-  body.public { overflow: auto; height: auto; min-height: 100dvh; }
-  .public-main {
-    grid-template-columns: 1fr;
-  }
-}
+/* Phone layout lives in the "Mobile" section at the end of this file. */
 .player-stage {
   position: relative;
   flex: 1 1 auto;          /* fill the column height */
@@ -947,10 +945,242 @@ body.has-browser-warning { padding-top: 2.75rem; }
   border-top: 1px solid var(--border);
 }
 
-/* ── Mobile ────────────────────────────────────────────────────────────── */
-@media (max-width: 36rem) {
-  .public-header { padding: 0.625rem 0.875rem; }
-  .public-main { padding: 0.875rem; }
-  .player-controls { flex-wrap: wrap; }
-  .volume { width: 6rem; }
+/* ── Mobile ──────────────────────────────────────────────────────────────
+   Phones get an app-like frame instead of a shrunken desktop: the page
+   never scrolls; the video is a full-bleed stage that takes every pixel
+   the chat doesn't; the control row rides ON the video over a bottom
+   scrim (the same glass/pill language as fullscreen mode); the chat is a
+   bottom sheet whose header doubles as a grab bar (tap to collapse); and
+   the header actions fold into a burger sheet. */
+@media (max-width: 48rem) {
+  body.public { overflow: hidden; height: 100dvh; }
+
+  /* ── Compact header + burger ── */
+  .public-header {
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  .public-brand { font-size: 0.9375rem; }
+  .public-brand-logo { width: 1.5rem; height: 1.5rem; }
+  .menu-btn {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.menu-open .menu-btn { background: var(--panel-2); }
+
+  /* The header action row becomes the burger's slide-down glass sheet. */
+  .public-actions {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0.75rem;
+    z-index: 30;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.375rem;
+    min-width: 13rem;
+    margin-left: 0;
+    padding: 0.625rem;
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    animation: menu-sheet-in 160ms cubic-bezier(.2,.7,.2,1);
+  }
+  body.menu-open .public-actions { display: flex; }
+  @keyframes menu-sheet-in {
+    from { opacity: 0; transform: translateY(-0.375rem); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .public-actions .btn { justify-content: flex-start; width: 100%; }
+  .public-actions .status-chip { justify-content: center; }
+  .menu-version {
+    display: block;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.6875rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Full-bleed stage ── */
+  .public-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+  }
+  .player {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    gap: 0;
+  }
+  .player-stage {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* ── Controls on the video's bottom scrim ── */
+  .player-controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    gap: 0.25rem;
+    padding: 1.5rem 0.625rem 0.375rem;
+    background: linear-gradient(180deg, transparent,
+      rgba(5, 6, 10, 0.6) 55%, rgba(5, 6, 10, 0.85));
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .player-controls .player-btn { color: #fff; }
+  .player-controls .player-btn:hover { background: rgba(255, 255, 255, 0.14); }
+  /* Phones use hardware volume; the mute button remains. */
+  .volume { display: none; }
+  /* Nerd chips don't earn their space at this size. */
+  #latency-chip, #latency-sep, .quality-chip { display: none !important; }
+  .player-meta {
+    margin-left: 0.125rem;
+    font-size: 0.78125rem;
+    color: rgba(255, 255, 255, 0.72);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  .player-meta-label { color: #fff; }
+  .sync-chip { border-color: rgba(255, 255, 255, 0.4); color: #fff; }
+  /* Reactions shrink to just the emoji face. */
+  .reaction-btn { border: none; padding: 0 0.5rem; }
+  .reaction-btn-label { display: none; }
+  .reaction-btn-emoji { font-size: 1.25rem; }
+  /* Keep the sound prompt clear of the control scrim. */
+  .unmute-badge { bottom: 3.75rem; }
+
+  /* Overlay content (OFF AIR / Paused / Now Showing card) centers in the
+     stage — keep it clear of the control scrim and size the card for a
+     phone: smaller poster, tighter type, scrollable if it still runs long. */
+  .player-overlay { padding: 1rem 1rem 4.5rem; }
+  .player-overlay .overlay-eyebrow { font-size: 1.5rem; }
+  html.has-now-showing .player-overlay .paused-now-showing {
+    width: min(20rem, 94%);
+    max-height: 100%;
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+  .paused-ns-poster { width: 6.5rem; }
+  .paused-ns-title { font-size: 1.125rem; }
+  .paused-ns-desc { font-size: 0.8125rem; line-height: 1.45; }
+
+  /* iOS Safari auto-zooms the page when a focused input renders its text
+     smaller than 16px — the zoom then crops the right edge of the layout.
+     Keep every text input at 1rem (16px) on phones so focusing the chat
+     join box / compose bar never triggers it. (This file loads after
+     chat.css, so these win at equal specificity.) */
+  .chat-name-input,
+  .chat-compose-input,
+  input[type="text"] { font-size: 1rem; }
+
+  /* ── Chat bottom sheet ── */
+  .chat-panel {
+    flex: 0 0 auto;
+    height: min(44dvh, 26rem);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    /* Collapse/expand animates the sheet's height; the player (flex: 1)
+       tracks it, so the video glides into the freed space. */
+    transition: height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .chat-header {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    /* A deterministic bar height so the collapsed sheet can match it
+       exactly (content is centered; the border stays in the box). */
+    min-height: 3.5rem;
+  }
+  /* Content fades out slightly faster than the sheet folds, so nothing
+     is visibly squashed mid-animation; visibility flips after the fade
+     so the hidden body can't be focused or read while collapsed. */
+  .chat-body {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.18s ease;
+  }
+  .chat-panel.is-collapsed .chat-body {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+  }
+  .chat-collapse-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chat-collapse-btn svg { transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
+  .chat-panel.is-collapsed .chat-collapse-btn svg { transform: rotate(180deg); }
+  /* Collapsed = exactly the header bar (plus home-indicator clearance,
+     which the header's centered content floats above). A fixed value —
+     unlike height:auto — is what makes the fold animatable. */
+  .chat-panel.is-collapsed {
+    height: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Home-indicator clearance for whichever element sits at the bottom. */
+  .chat-compose { padding-bottom: max(0.625rem, env(safe-area-inset-bottom)); }
+  .chat-join    { padding-bottom: max(0.75rem,  env(safe-area-inset-bottom)); }
+
+  /* Version + name live in the burger sheet instead. */
+  .public-foot { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-actions { animation: none; }
+  .chat-collapse-btn svg { transition: none; }
+  .chat-panel { transition: none; }
+  .chat-body { transition: none; }
+}
+
+/* Landscape phones don't hit the width breakpoint, but the desktop grid's
+   28rem chat column would swallow half the screen. Tighten it. (Real
+   desktops are taller than 32rem, so they never match.) */
+@media (max-height: 32rem) and (min-width: 48rem) {
+  .public-header { padding: 0.375rem 0.75rem; }
+  .public-main {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  .public-foot { display: none; }
+  /* Same compact control row as portrait phones — every vertical pixel
+     belongs to the video here. */
+  .player-controls { padding: 0.375rem 0.625rem; gap: 0.25rem; }
+  .volume { width: 5rem; }
+  #latency-chip, #latency-sep, .quality-chip { display: none !important; }
+  .reaction-btn { border: none; padding: 0 0.5rem; }
+  .reaction-btn-label { display: none; }
+  .reaction-btn-emoji { font-size: 1.25rem; }
 }

@@ -8,7 +8,20 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.2.4 — 2026-07-05 (latest) — Rename participants
+## 0.4.0 — 2026-08-22 (latest) — Beautiful on phones
+
+- **A real phone experience.** On small screens the viewer is now an app, not a shrunken web page: the video runs edge to edge, the controls sit on the video itself in a slim translucent strip, and the chat lives in a bottom sheet — tap its header to collapse it and give the movie the whole screen (your choice is remembered).
+- **Tidy top bar.** On phones the header collapses into a burger menu holding Now Showing, your connection status, the sign-in link, and the version — just the logo and one button up top.
+- **Fullscreen on iPhone.** The fullscreen button now works on iPhones too, using the native player — rotate your phone for full-screen landscape.
+- **An honest warning for the host.** The "No Apple viewers" guess is gone. The broadcast page now shows "⚠ N viewers can't play this" only when actual viewers report they can't decode the stream — real data from real browsers, and it clears the moment they can.
+
+## 0.3.0 — 2026-08-22 — Safari & iPhone support
+
+- **Watch from any Apple device.** Streams now play in Safari on Mac and in every browser on iPhone and iPad (iOS 17.1 or later). Broadcasts are sent as MP4 (H.264/AAC) — the format Apple devices can actually play — whenever the broadcasting browser supports it: that's Chrome, Edge, and Safari. Firefox can only broadcast WebM, so if you stream from Firefox a small ⚠ chip next to the Codec stat reminds you that Apple-device viewers can't tune in.
+- **Smarter live sync.** The player now adapts how far behind live it sits to how the broadcast actually arrives, so MP4 streams from Chrome (which sends bigger, less frequent chunks) play smoothly instead of stuttering. WebM and Safari broadcasts keep the same snappy ~3-second latency as before.
+- **No more false Safari warning.** The old "video may perform poorly in Safari" banner is gone. You'll only see a warning when playback genuinely isn't possible — an outdated browser, or a WebM broadcast viewed from Safari — and it says exactly what to do about it.
+
+## 0.2.4 — 2026-07-05 — Rename participants
 
 - **Rename anyone in the room.** As the broadcaster, hover a participant in the **Participants** panel and click the pencil to give them a new screen name — handy for tidying up duplicates or cleaning up an inappropriate handle. The new name updates everywhere and sticks for that person even if they reload.
 

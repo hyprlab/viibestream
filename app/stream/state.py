@@ -3,21 +3,27 @@
 The hard problem of "let a viewer who joined mid-stream actually play
 something" is that MediaSource Extensions need:
 
-  1. the WebM/EBML header (Segment, Tracks, etc.) — call this the "init"
+  1. the container's init segment (WebM: EBML + Segment + Tracks;
+     fMP4: ftyp + moov)
   2. a media segment that starts with a keyframe.
 
 MediaRecorder emits a continuous byte stream where the FIRST chunk
-contains the init + the start of the first cluster, and subsequent
-chunks are continuations. So caching just "the first chunk" lets MSE
-decode exactly one frame and then stall.
+contains the init + the start of the first media segment, and
+subsequent chunks are continuations. So caching just "the first chunk"
+lets MSE decode exactly one frame and then stall.
 
-Fix: scan the incoming chunks for the Cluster EBML ID (0x1F43B675).
-Each Cluster starts on a keyframe, so we can hand a late joiner:
+Fix: split the incoming byte stream at media-segment boundaries —
+WebM Cluster elements (EBML ID 0x1F43B675) or fMP4 `moof` boxes,
+depending on the broadcast mime type. Each starts on a keyframe, so we
+can hand a late joiner:
 
-    header_bytes + last_complete_cluster + current_cluster_so_far
+    header_bytes + last_complete_segment + current_segment_so_far
 
 and they'll catch up to live in a few seconds. After that, the normal
-fan-out of live `bcast:chunk` events keeps them in sync.
+fan-out of live `bcast:chunk` events keeps them in sync. The payload
+must stay BYTE-CONTINUOUS with the live chunk stream: the next live
+chunk a late joiner receives picks up exactly where the payload ended,
+so no byte may be dropped or reordered along the way.
 """
 from __future__ import annotations
 
@@ -29,6 +35,15 @@ from datetime import datetime, timedelta, timezone
 # WebM (Matroska) EBML ID for a Cluster element. Each cluster begins
 # with a keyframe, which is the only safe place for MSE to start.
 CLUSTER_ID = b"\x1f\x43\xb6\x75"
+
+# fMP4 boxes that belong to the init segment (everything before the
+# first `moof` fragment). MediaRecorder emits: ftyp, moov, then
+# repeating moof+mdat fragment pairs.
+MP4_HEADER_BOXES = {b"ftyp", b"moov"}
+# Sanity ceiling for a single top-level box. A 250 ms fragment even at
+# absurd bitrates is well under this; anything bigger means we lost
+# byte-sync and should stop trying to segment (fan-out is unaffected).
+MP4_MAX_BOX = 64 * 1024 * 1024
 
 
 @dataclass
@@ -63,16 +78,24 @@ class _State:
     # no banner. Owned by the broadcaster's browser and re-pushed on connect.
     alert_message: str = ""
     authed_viewer_sids: set[str] = field(default_factory=set)
+    # Viewers whose browser reported it cannot play the current broadcast
+    # format (viewer:playback ok=false). Drives the broadcaster's
+    # "N viewers can't play this" chip with real data instead of codec
+    # guesswork — WebKit's format support changes too fast to hard-code.
+    cant_play_sids: set[str] = field(default_factory=set)
     # Per-IP failed-auth tracking. Maps each viewer's IP to
     # { "count": int, "locked_until": datetime | None }. Wiped along
     # with the chat ban list when a broadcast stops.
     failed_code_attempts: dict = field(default_factory=dict)
 
     # Late-joiner buffer --------------------------------------------------
-    header_bytes: bytes = b""            # EBML + Segment + Tracks (before 1st Cluster)
-    last_complete_cluster: bytes = b""   # most recent fully-received cluster
-    current_cluster: bytes = b""         # in-progress cluster
+    container: str = "webm"              # "webm" | "mp4" — set from the mime
+    header_bytes: bytes = b""            # init segment (before the 1st cluster/moof)
+    last_complete_cluster: bytes = b""   # most recent fully-received cluster/fragment
+    current_cluster: bytes = b""         # in-progress cluster/fragment
     has_seen_first_cluster: bool = False
+    pending: bytes = b""                 # mp4 only: partial box tail awaiting bytes
+    parse_broken: bool = False           # mp4 only: lost byte-sync, stop segmenting
 
     _lock: threading.RLock = field(default_factory=threading.RLock)
 
@@ -101,6 +124,12 @@ class BroadcastState:
             self._s.started_at = datetime.now(timezone.utc)
             self._apply_meta_locked(meta or {})
             self._reset_buffer_locked()
+            self._s.container = (
+                "mp4" if (mime_type or "").startswith("video/mp4") else "webm"
+            )
+            # A (re)start may change the format — drop stale can't-play
+            # reports; every viewer re-evaluates on the next stream:init.
+            self._s.cant_play_sids.clear()
             return True
 
     def set_paused(self, sid: str, paused: bool) -> bool:
@@ -158,6 +187,8 @@ class BroadcastState:
         self._s.last_complete_cluster = b""
         self._s.current_cluster = b""
         self._s.has_seen_first_cluster = False
+        self._s.pending = b""
+        self._s.parse_broken = False
 
     # ── Access lock ────────────────────────────────────────────────────
     _CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"   # no 0/O/1/I/L
@@ -268,6 +299,22 @@ class BroadcastState:
         with self._s._lock:
             self._s.authed_viewer_sids.add(sid)
 
+    # ── Playback-capability reports ────────────────────────────────────
+    def set_playback_ok(self, sid: str, ok: bool) -> bool:
+        """Record whether `sid`'s browser can play the current broadcast.
+        Returns True iff the can't-play count changed."""
+        with self._s._lock:
+            before = len(self._s.cant_play_sids)
+            if ok:
+                self._s.cant_play_sids.discard(sid)
+            else:
+                self._s.cant_play_sids.add(sid)
+            return len(self._s.cant_play_sids) != before
+
+    def cant_play_count(self) -> int:
+        with self._s._lock:
+            return len(self._s.cant_play_sids)
+
     def is_authorized(self, sid: str) -> bool:
         with self._s._lock:
             if not (self._s.lock_enabled and self._s.access_code):
@@ -284,38 +331,98 @@ class BroadcastState:
 
     # ── Late-joiner buffer ────────────────────────────────────────────
     def ingest_chunk(self, sid: str, chunk: bytes) -> None:
-        """Scan a chunk for Cluster boundaries and update the late-joiner
-        buffer accordingly. Called for every chunk the broadcaster sends,
-        BEFORE the chunk is fanned out to viewers."""
+        """Scan a chunk for media-segment boundaries (WebM Clusters or
+        fMP4 moof fragments) and update the late-joiner buffer. Called for
+        every chunk the broadcaster sends, BEFORE the chunk is fanned out
+        to viewers."""
         with self._s._lock:
             if not self._s.live or self._s.broadcaster_sid != sid:
                 return
-            i = 0
-            n = len(chunk)
-            while i < n:
-                idx = chunk.find(CLUSTER_ID, i)
-                if idx == -1:
-                    # No more cluster IDs in this chunk; tail goes to
-                    # whichever bucket is currently open.
-                    tail = chunk[i:]
-                    if self._s.has_seen_first_cluster:
-                        self._s.current_cluster += tail
-                    else:
-                        self._s.header_bytes += tail
-                    break
-                # Bytes [i, idx) belong to whatever section was open.
-                before = chunk[i:idx]
+            if self._s.container == "mp4":
+                self._ingest_mp4_locked(chunk)
+            else:
+                self._ingest_webm_locked(chunk)
+
+    def _ingest_webm_locked(self, chunk: bytes) -> None:
+        i = 0
+        n = len(chunk)
+        while i < n:
+            idx = chunk.find(CLUSTER_ID, i)
+            if idx == -1:
+                # No more cluster IDs in this chunk; tail goes to
+                # whichever bucket is currently open.
+                tail = chunk[i:]
                 if self._s.has_seen_first_cluster:
-                    self._s.current_cluster += before
-                    # current_cluster is now complete — promote it.
-                    self._s.last_complete_cluster = self._s.current_cluster
-                    self._s.current_cluster = b""
+                    self._s.current_cluster += tail
                 else:
-                    self._s.header_bytes += before
-                    self._s.has_seen_first_cluster = True
-                # The CLUSTER_ID bytes themselves start the new cluster.
-                self._s.current_cluster = bytes(CLUSTER_ID)
-                i = idx + 4
+                    self._s.header_bytes += tail
+                break
+            # Bytes [i, idx) belong to whatever section was open.
+            before = chunk[i:idx]
+            if self._s.has_seen_first_cluster:
+                self._s.current_cluster += before
+                # current_cluster is now complete — promote it.
+                self._s.last_complete_cluster = self._s.current_cluster
+                self._s.current_cluster = b""
+            else:
+                self._s.header_bytes += before
+                self._s.has_seen_first_cluster = True
+            # The CLUSTER_ID bytes themselves start the new cluster.
+            self._s.current_cluster = bytes(CLUSTER_ID)
+            i = idx + 4
+
+    def _ingest_mp4_locked(self, chunk: bytes) -> None:
+        """Fragmented-MP4 variant: walk complete top-level boxes, treating
+        each `moof` as the start of a new media segment (moof + mdat + any
+        trailing boxes until the next moof). Boxes are length-prefixed, so
+        unlike the WebM scan there are no false positives — but a box can
+        span many chunks, so incomplete tail bytes wait in `pending`.
+        `pending` is part of the byte stream and is included in the
+        late-joiner payload to keep it continuous with live chunks."""
+        s = self._s
+        if s.parse_broken:
+            # Lost byte-sync earlier — keep appending so the payload stays
+            # continuous for anyone who already joined, but stop segmenting.
+            if s.has_seen_first_cluster:
+                s.current_cluster += chunk
+            else:
+                s.header_bytes += chunk
+            return
+        buf = s.pending + chunk
+        i, n = 0, len(buf)
+        while n - i >= 8:
+            size = int.from_bytes(buf[i:i + 4], "big")
+            typ = buf[i + 4:i + 8]
+            if size == 1:  # 64-bit largesize header
+                if n - i < 16:
+                    break
+                size = int.from_bytes(buf[i + 8:i + 16], "big")
+            if size < 8 or size > MP4_MAX_BOX:
+                # Not a plausible box — we lost sync. Route everything into
+                # the open bucket from here on (see parse_broken above).
+                s.parse_broken = True
+                rest = buf[i:]
+                if s.has_seen_first_cluster:
+                    s.current_cluster += rest
+                else:
+                    s.header_bytes += rest
+                s.pending = b""
+                return
+            if n - i < size:
+                break  # box not fully received yet
+            box = buf[i:i + size]
+            if typ == b"moof":
+                if s.has_seen_first_cluster and s.current_cluster:
+                    s.last_complete_cluster = s.current_cluster
+                s.has_seen_first_cluster = True
+                s.current_cluster = box
+            elif s.has_seen_first_cluster:
+                s.current_cluster += box
+            else:
+                # ftyp/moov (and anything else pre-moof) is the init segment.
+                s.header_bytes += box
+            i += size
+        s.pending = buf[i:]
 
     def late_joiner_payload(self) -> bytes | None:
         """Concatenated bytes to send a late joiner so MSE can start playing.
@@ -336,6 +443,10 @@ class BroadcastState:
                     parts.append(self._s.last_complete_cluster)
                 if self._s.current_cluster:
                     parts.append(self._s.current_cluster)
+            # mp4 only: bytes of a partially-received box. Must be included
+            # so the payload is byte-continuous with the next live chunk.
+            if self._s.pending:
+                parts.append(self._s.pending)
             payload = b"".join(parts)
             return payload if payload else None
 
@@ -349,6 +460,7 @@ class BroadcastState:
         with self._s._lock:
             self._s.viewer_sids.discard(sid)
             self._s.authed_viewer_sids.discard(sid)
+            self._s.cant_play_sids.discard(sid)
             return len(self._s.viewer_sids)
 
     def viewer_count(self) -> int:
@@ -378,6 +490,9 @@ class BroadcastState:
                 "lock_enabled": bool(self._s.lock_enabled and self._s.access_code),
                 "reactions_enabled": bool(self._s.reactions_enabled),
                 "alert": self._s.alert_message,
+                # Viewers whose browser reported it can't decode the
+                # current broadcast (see set_playback_ok).
+                "playback_issues": len(self._s.cant_play_sids),
             }
 
     # ── Viewer reactions ───────────────────────────────────────────────

@@ -84,7 +84,7 @@ class BaseConfig:
 
     # Misc --------------------------------------------------------------------
     APP_NAME = "Viibestream"
-    APP_VERSION = "0.2.4"
+    APP_VERSION = "0.4.0"
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB request cap
 
 

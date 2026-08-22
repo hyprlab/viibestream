@@ -14,15 +14,19 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
 </head>
 <body class="public locked">
-  <!-- Safari performance warning. Revealed by browser-warning.js only on
-       Safari (where MSE playback can stutter) and only until dismissed.
-       Fixed above the lock screen so it's visible before the access code
-       is entered. -->
+  <!-- Playback-support warning. Revealed by browser-warning.js when the
+       browser has no MediaSource implementation (e.g. iOS before 17.1),
+       or by stream-viewer.js — with a format-specific message — when the
+       active broadcast is a format this browser can't play (a WebM
+       stream viewed from Safari). Fixed above the lock screen so it's
+       visible before the access code is entered. -->
+
   <div class="browser-warning" id="browser-warning" role="alert" hidden>
     <svg class="browser-warning-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     <span class="browser-warning-text">
-      Video may perform poorly in Safari. For the best experience, switch to
-      <strong>Chrome</strong> or <strong>Firefox</strong>.
+      This browser can&rsquo;t play live video here. Update it (iPhone/iPad:
+      iOS 17.1 or later), or use <strong>Chrome</strong> or
+      <strong>Firefox</strong>.
     </span>
     <button type="button" class="browser-warning-close" id="browser-warning-close"
             aria-label="Dismiss this warning">
@@ -36,7 +40,10 @@
       <span class="public-brand-name">{{ app_name }}</span>
     </a>
 
-    <div class="public-actions">
+    <!-- On desktop this is the inline header action row. On phones it
+         becomes the burger menu's slide-down sheet (same elements, same
+         ids — CSS repositions it; #menu-btn toggles body.menu-open). -->
+    <div class="public-actions" id="public-actions">
       <button type="button" class="btn btn-ghost btn-sm" id="info-btn"
               data-open-modal="info-modal"
               title="About this stream" aria-label="About this stream" hidden>
@@ -49,7 +56,15 @@
       {% else %}
         <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">Sign in</a>
       {% endif %}
+      <span class="menu-version">{{ app_name }} v{{ app_version }}</span>
     </div>
+
+    <!-- Phone-only burger that opens/closes the sheet above. -->
+    <button type="button" class="menu-btn" id="menu-btn"
+            aria-label="Menu" aria-expanded="false" aria-controls="public-actions">
+      <svg class="ico-burger" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg class="ico-close" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   </header>
 
   <main class="public-main">
@@ -280,8 +295,21 @@
                   aria-label="Pin or unpin chat">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.4-3.5a2 2 0 0 1-.14-.74V6a1 1 0 0 1 1-1 1 1 0 0 0 0-2H5.54a1 1 0 0 0 0 2 1 1 0 0 1 1 1v6.76a2 2 0 0 1-.14.74z"/></svg>
           </button>
+          <!-- Phone only: collapse the chat sheet down to this header bar
+               so the video gets the whole screen. -->
+          <button type="button" class="chat-collapse-btn" id="chat-collapse-btn"
+                  aria-expanded="true" aria-controls="chat-panel"
+                  title="Collapse chat" aria-label="Collapse or expand chat">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
         </div>
       </header>
+
+      <!-- Everything below the header sits in .chat-body so the phone
+           layout can collapse the sheet to its header with one animated
+           height + a body fade (see public.css). Desktop layout flows
+           through the wrapper unchanged. -->
+      <div class="chat-body">
 
       <!-- Message list — always visible so anyone can read along
            without joining. Toggled against #chat-empty by chat.js. -->
@@ -356,6 +384,8 @@
       <div class="chat-banner" id="chat-banner" hidden>
         <span id="chat-banner-text"></span>
       </div>
+
+      </div><!-- /.chat-body -->
     </aside>
 
     <!-- Chat identity editor — opened by the emoji circle next to the

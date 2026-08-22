@@ -17,6 +17,18 @@
   box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
+/* Optional wrapper around everything below the chat header (used by the
+   public viewer so phones can collapse the sheet with one animated
+   height). It's a transparent flex column that fills the panel, so the
+   children lay out exactly as if they were direct panel children. */
+.chat-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
 .chat-header {
   display: flex;
   align-items: center;
