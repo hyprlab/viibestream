@@ -11,6 +11,106 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-22
+
+### Added
+
+- **Phone-first viewer layout** (`static/css/public.css`, viewer template).
+  Under 48rem the page becomes an app-like frame: the page never scrolls;
+  the video is a full-bleed stage that takes every pixel the chat doesn't;
+  the control row rides ON the video over a bottom scrim (volume slider and
+  latency/quality chips hidden — hardware volume + a compact `LIVE · N
+  watching` readout); the chat is a bottom sheet with rounded top corners
+  whose header doubles as a grab bar — tap it (or the chevron,
+  `#chat-collapse-btn`) to collapse the sheet to its header and give the
+  video the whole screen (persisted as `vbs-chat-collapsed`). The fold is
+  animated: the sheet's height tweens between its expanded size and the
+  bar (0.32s ease), the player glides into the freed space, and the
+  sheet's contents — wrapped in `.chat-body` for this — fade out first so
+  nothing squashes mid-animation (visibility flips after the fade;
+  reduced-motion disables all of it). Safe-area insets respected top and
+  bottom. Landscape phones (`max-height: 32rem`)
+  get a tightened two-column grid with the same compact controls.
+- **Burger menu** (`#menu-btn`, `body.menu-open`). On phones the header
+  action row (`#public-actions` — Now Showing, connection status,
+  Admin/Sign in, version) folds into a slide-down glass sheet under the
+  burger; same elements and ids, CSS repositions them, so info.js and the
+  status chip keep working unmodified.
+- **iPhone fullscreen** (`stream-viewer.js`). Where the element-fullscreen
+  API doesn't exist (iPhone), the fullscreen button falls back to the
+  video's native `webkitEnterFullscreen()` — rotate-to-landscape works.
+- **Real playback-capability reports** replace the codec-guessing
+  "No Apple viewers" chip. Viewers emit `viewer:playback {ok}` when MSE
+  accepts/rejects the broadcast mime (`stream-viewer.js`); the server
+  tracks the can't-play set per broadcast (`state.py::set_playback_ok`,
+  cleared on (re)start and viewer departure) and pushes
+  `stream:playback_issues {count}` to broadcasters (`events.py`). The
+  broadcaster chip now reads "⚠ N viewers can't play this" and only
+  appears when someone is actually affected — WebKit's decode support
+  moves too fast for UA/codec heuristics (Safari 18.4 even records WebM).
+
+### Fixed
+
+- **iOS focus zoom** (`public.css`). Safari zooms the page when a focused
+  input's text renders under 16px, cropping the right edge of the layout.
+  On phones every text input (chat join, compose, profile, lock code) now
+  renders at 1rem/16px, which suppresses the zoom without resorting to
+  `maximum-scale=1` (that hack breaks pinch-zoom on Android).
+
+## [0.3.0] — 2026-08-22
+
+### Added
+
+- **Safari & iPhone/iPad playback** . The broadcast pipeline now prefers
+  **fragmented MP4 (H.264/AAC)** — the one container every browser's MSE
+  accepts — over WebM:
+  - `static/js/stream-broadcaster.js::pickMime` tries
+    `video/mp4;codecs=avc1…,mp4a.40.2` first (recordable in Chrome/Edge
+    130+ and Safari 14.1+) and falls back to WebM (Firefox can't record
+    MP4). Bare `video/mp4` sits *below* WebM: a recorder that accepts
+    only the bare string (e.g. Chromium without licensed codecs) would
+    fill it with VP9 — useless to Safari — and the codec-less mime
+    breaks Chrome's own MSE. A ⚠ chip beside the Codec stat warns when
+    a WebM-only browser is broadcasting, since Apple-device viewers
+    can't play that. fMP4 recording sets
+    `videoKeyFrameIntervalDuration: 1000` — mp4 fragments can only
+    close on a keyframe, and without forced ~1s keyframes Chrome's
+    muxer emits a chunk every ~7s or worse.
+  - `app/stream/state.py` late-joiner buffer is now container-aware: for
+    mp4 it walks length-prefixed top-level boxes and segments on `moof`
+    fragments (ftyp+moov = init segment) instead of scanning for WebM
+    Cluster IDs; partially-received boxes wait in `pending` and are
+    appended to the late-joiner payload so it stays byte-continuous with
+    the live chunk stream. Unit-tested at every possible chunk split
+    (`tests/test_late_joiner_buffer.py`).
+  - `static/js/stream-viewer.js` falls back to **ManagedMediaSource**
+    where `MediaSource` is missing (iPhone, iOS 17.1+), setting
+    `disableRemotePlayback` as WebKit requires; fMP4 SourceBuffers use
+    the default `segments` mode (WebKit's `sequence` handling of fMP4 is
+    unreliable), WebM keeps `sequence`.
+
+### Changed
+
+- **Adaptive live-sync cushion** (`stream-viewer.js`). Chrome's MP4
+  muxer ignores the 250 ms timeslice and emits one chunk per keyframe
+  (~6–7 s), which would starve a fixed 3 s cushion into a play/stall/seek
+  loop. The viewer now sizes its behind-live target from the largest
+  recent inter-chunk gap (floor 3 s, ceiling ~15 s + margins), so WebM
+  and Safari-fMP4 broadcasts keep ~3 s latency while Chrome-fMP4
+  broadcasts settle into a stable ~10 s. Watch-party sync (everyone at
+  the same distance behind live) is preserved.
+- **Stall auto-recovery** (`stream-viewer.js::syncToLive`). WebKit pauses
+  the `<video>` on SourceBuffer underrun and never resumes by itself;
+  since the viewer page has no pause control, a paused-but-live player
+  is always a stall and is now nudged back into playback (falling back
+  to muted play if the browser blocks unmuted autoplay).
+- **Honest browser warning** (`browser-warning.js`, viewer template). The
+  blanket "Safari may perform poorly" banner is gone. The banner now
+  only appears when the browser has no MSE at all (iOS < 17.1), or —
+  raised by the viewer with a format-specific message — when the active
+  broadcast is a format the browser truly can't play (a WebM stream
+  viewed from Safari).
+
 ## [0.2.4] — 2026-07-05
 
 ### Added

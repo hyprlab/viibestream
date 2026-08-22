@@ -1,10 +1,12 @@
 // Broadcaster: browser camera/mic → MediaRecorder → Socket.IO chunks.
 //
-// We pick the first WebM codec the browser supports and roll 250ms
-// timeslices so the server can fan out chunks to viewers with low
-// latency. The very first chunk holds the WebM init segment (the EBML
-// header, segment info, and Tracks), so the server caches it for any
-// viewer who joins after the broadcast has started.
+// We pick the first container/codec the browser supports — preferring
+// fragmented MP4 (H.264/AAC), the only format Safari/iOS viewers can
+// play via MSE, falling back to WebM (Firefox can't record MP4) — and
+// roll 250ms timeslices so the server can fan out chunks to viewers
+// with low latency. The very first chunks hold the container's init
+// segment (fMP4: ftyp+moov; WebM: EBML header + Tracks), so the server
+// caches it for any viewer who joins after the broadcast has started.
 (function () {
   'use strict';
 
@@ -81,6 +83,7 @@
     liveLabel:   document.getElementById('live-label'),
     viewerCount: document.getElementById('viewer-count'),
     codecOut:    document.getElementById('codec-out'),
+    codecWarn:   document.getElementById('codec-warning'),
     bytesOut:    document.getElementById('bytes-out'),
     elapsedOut:  document.getElementById('elapsed-out'),
     kickBtn:     document.getElementById('kick-btn'),
@@ -258,18 +261,56 @@
   }
 
   function pickMime() {
+    // Fragmented MP4 (H.264/AAC) first: it's the one container every
+    // viewer's MSE accepts — including Safari on macOS and iOS, which
+    // reject WebM outright. Chrome/Edge (130+) and Safari (14.1+) can
+    // record it; Firefox records WebM only, so WebM stays the fallback
+    // (with a visible warning that Apple-device viewers can't watch).
+    //
+    // Bare "video/mp4" sits BELOW the WebM variants on purpose: a
+    // recorder that accepts only the bare string but none of the
+    // H.264+AAC pairs (e.g. a Chromium built without licensed codecs)
+    // would fill the container with VP9/Opus — no help to Safari
+    // viewers, and the codec-less mime string breaks Chrome's own MSE
+    // (`MediaSource.isTypeSupported('video/mp4')` is false there). It
+    // remains as a last resort for browsers with no WebM recording at
+    // all (Safari 14.1–18.3, whose mp4 is always H.264/AAC).
     var candidates = [
+      'video/mp4;codecs=avc1.640028,mp4a.40.2',   // H.264 High + AAC
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',   // H.264 Baseline + AAC
+      'video/mp4;codecs=avc1,mp4a.40.2',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
       'video/webm;codecs=vp9',
       'video/webm;codecs=vp8',
       'video/webm',
+      'video/mp4',
     ];
     if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return null;
     for (var i = 0; i < candidates.length; i++) {
       if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
     }
     return null;
+  }
+
+  // "N viewers can't play this" chip beside the codec readout. Fed by
+  // real viewer:playback reports relayed through the server — never by
+  // guessing from the codec string, since what each WebKit version can
+  // decode keeps changing. Zero affected viewers = no chip.
+  function updatePlaybackIssues(count) {
+    if (!els.codecWarn) return;
+    count = count || 0;
+    if (count > 0) {
+      els.codecWarn.textContent =
+        '⚠ ' + count + (count === 1 ? ' viewer' : ' viewers') +
+        " can't play this";
+      els.codecWarn.title =
+        count + (count === 1 ? ' viewer’s browser reports' :
+                               ' viewers’ browsers report') +
+        ' they can’t decode this broadcast format. Broadcasting ' +
+        'from Chrome, Edge, or Safari (MP4) reaches the most devices.';
+    }
+    setHidden(els.codecWarn, count === 0);
   }
 
   // 16:9 width matched to each target height so the camera can negotiate
@@ -1143,7 +1184,7 @@
     if (!state.stream) return;
     var mime = pickMime();
     if (!mime) {
-      alert('This browser does not support MediaRecorder with WebM. Try Chrome, Edge, or Firefox.');
+      alert('This browser cannot record video for streaming. Try Chrome, Edge, Safari, or Firefox.');
       return;
     }
     state.mime = mime;
@@ -1249,13 +1290,23 @@
 
   function beginRecorder() {
     var bitrate = effectiveBitrate();
+    var opts = {
+      mimeType: state.mime,
+      videoBitsPerSecond: bitrate,
+      audioBitsPerSecond: 96_000,
+    };
+    // fMP4 fragments can only close on a keyframe, and Chrome's mp4
+    // muxer ignores the start() timeslice — with default (sparse)
+    // keyframes it emits a chunk every ~7s or worse, which balloons
+    // viewer latency. Force ~1s keyframes so mp4 chunks flow about as
+    // often as WebM ones. (Unknown dict members are ignored by
+    // browsers that don't implement this option.)
+    if (state.mime && state.mime.indexOf('mp4') !== -1) {
+      opts.videoKeyFrameIntervalDuration = 1000;
+    }
     var rec;
     try {
-      rec = new MediaRecorder(getBroadcastStream(), {
-        mimeType: state.mime,
-        videoBitsPerSecond: bitrate,
-        audioBitsPerSecond: 96_000,
-      });
+      rec = new MediaRecorder(getBroadcastStream(), opts);
     } catch (err) {
       console.error(err);
       alert('Failed to start MediaRecorder: ' + err.message);
@@ -1288,6 +1339,7 @@
   }
 
   function stopLive() {
+    updatePlaybackIssues(0);   // reports are per-broadcast; clear the chip
     if (state.recorder && state.recorder.state !== 'inactive') {
       try { state.recorder.stop(); } catch (_) {}
     }
@@ -2615,7 +2667,14 @@
   });
   socket.on('connect_error', function () { setStatus('error', 'Connect error'); });
 
-  socket.on('bcast:started', function () { beginRecorder(); });
+  socket.on('bcast:started', function (snap) {
+    beginRecorder();
+    updatePlaybackIssues(snap && snap.playback_issues);
+  });
+  // Live count of viewers whose browser can't decode the broadcast.
+  socket.on('stream:playback_issues', function (info) {
+    updatePlaybackIssues(info && info.count);
+  });
   socket.on('bcast:ended',   function (info) {
     stopLive();
     // Don't alert the admin who just clicked "End Stream Session" — only

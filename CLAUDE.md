@@ -47,17 +47,24 @@ python run.py
 ### Streaming dataflow
 1. Broadcaster page (`templates/admin/stream.html` +
    `static/js/stream-broadcaster.js`) calls `getUserMedia`, builds a
-   `MediaRecorder` with a supported WebM mime, and emits the first
-   blob (the WebM init segment) followed by ~250 ms chunks over
-   `bcast:chunk` Socket.IO events.
+   `MediaRecorder` — preferring **fragmented MP4 (H.264/AAC)**, the only
+   format Safari/iOS viewers can play via MSE, falling back to WebM on
+   Firefox — and emits the init segment followed by chunks over
+   `bcast:chunk` Socket.IO events (`start(250)`; note Chrome's fMP4
+   muxer ignores the timeslice and emits ~one chunk per keyframe).
 2. `app/stream/events.py` validates the broadcaster's permissions,
-   stashes the **init segment** in `BroadcastState` (`app/stream/state.py`),
-   and fans every chunk out to the `viewers` Socket.IO room as
-   `stream:chunk` binary events.
+   stashes the **init segment** in `BroadcastState` (`app/stream/state.py`
+   — container-aware: fMP4 `moof` boxes or WebM Clusters), and fans every
+   chunk out to the `viewers` Socket.IO room as `stream:chunk` binary
+   events.
 3. The viewer page (`templates/public/viewer.html` +
    `static/js/stream-viewer.js`) joins on connect; the server replies
    with `stream:state`, then (if live) `stream:init` and the cached
-   init segment so MSE can rebuild a SourceBuffer mid-stream.
+   init segment so MSE can rebuild a SourceBuffer mid-stream. The viewer
+   uses `ManagedMediaSource` where `MediaSource` is missing (iPhone,
+   iOS 17.1+) and adapts its behind-live cushion to the observed chunk
+   cadence. A WebM broadcast viewed from Safari raises the
+   `#browser-warning` banner (WebKit's MSE rejects WebM).
 
 **Scaling note**: `BroadcastState` is in-process. The Dockerfile runs a
 single eventlet worker (`-w 1`) for this reason. To scale horizontally,
@@ -117,4 +124,6 @@ queue (`socketio.init_app(..., message_queue="redis://...")`).
   to `render_template`.
 - **Change stream chunk cadence**: `state.recorder.start(<ms>)` in
   `static/js/stream-broadcaster.js`. Lower = lower latency, more
-  network chatter.
+  network chatter. (Chrome's fMP4 muxer ignores this and emits ~one
+  chunk per keyframe; the viewer's adaptive live-sync cushion absorbs
+  either cadence.)

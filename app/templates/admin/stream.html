@@ -14,6 +14,9 @@
       <h2>Stream Preview</h2>
       <div class="card-header-meta">
         <span class="meta-stat"><span class="meta-k">Codec</span> <strong id="codec-out">—</strong></span>
+        <!-- Populated by updatePlaybackIssues() from live viewer reports:
+             "⚠ N viewers can't play this". Hidden while nobody is affected. -->
+        <span class="codec-warning" id="codec-warning" hidden></span>
         <span class="dot-sep">·</span>
         <span class="meta-stat"><strong id="bytes-out">0 B</strong> <span class="meta-k">sent</span></span>
         <span class="dot-sep">·</span>

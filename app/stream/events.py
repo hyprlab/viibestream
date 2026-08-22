@@ -67,6 +67,7 @@ def _on_disconnect():
         # session card stays accurate) AND every other viewer (so the
         # "N watching" indicator updates live).
         _broadcast_viewer_count(new_count)
+        _broadcast_playback_issues()   # departing sid may have been a can't-play
     # Also drop the sid from the chat roster — runs for every kind of
     # connected socket, broadcaster or viewer.
     from ..chat.events import handle_disconnect
@@ -101,6 +102,28 @@ def _viewer_leave():
     leave_room(AUTHED_VIEWERS_ROOM)
     count = broadcast_state.remove_viewer(sid)
     _broadcast_viewer_count(count)
+    _broadcast_playback_issues()
+
+
+@socketio.on("viewer:playback")
+def _viewer_playback(payload):
+    """A viewer reporting whether its browser can actually play the
+    current broadcast format (stream-viewer.js sends ok=false when MSE
+    rejects the mime, ok=true once a SourceBuffer is up). Drives the
+    broadcaster's 'N viewers can't play this' chip with ground truth
+    instead of codec guesswork."""
+    sid = request.sid
+    ok = bool((payload or {}).get("ok"))
+    if broadcast_state.set_playback_ok(sid, ok):
+        _broadcast_playback_issues()
+
+
+def _broadcast_playback_issues() -> None:
+    socketio.emit(
+        "stream:playback_issues",
+        {"count": broadcast_state.cant_play_count()},
+        to=BROADCASTERS_ROOM,
+    )
 
 
 @socketio.on("viewer:react")

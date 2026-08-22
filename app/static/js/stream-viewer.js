@@ -1,11 +1,23 @@
 // Viewer: subscribe to stream:chunk events, feed into MediaSource.
 //
-// MediaSource Extensions (MSE) need the first chunk to contain the WebM
-// init segment (EBML + Tracks). The server caches the first chunk of
-// each broadcast so late-joiners get one delivered as part of
-// `viewer:join`. From then on, we append every chunk to the SourceBuffer.
+// MediaSource Extensions (MSE) need the first chunk to contain the
+// container's init segment (WebM: EBML + Tracks; fMP4: ftyp + moov).
+// The server caches it per broadcast so late-joiners get one delivered
+// as part of `viewer:join`. From then on, we append every chunk to the
+// SourceBuffer.
+//
+// Safari/WebKit: iPhones expose ManagedMediaSource (iOS 17.1+) instead
+// of MediaSource, and no WebKit browser accepts WebM in MSE — only
+// fragmented MP4 (H.264/AAC), which the broadcaster prefers when its
+// MediaRecorder can produce it. When the active broadcast is a format
+// this browser truly can't play (a WebM stream viewed from Safari), we
+// say so in the warning banner instead of failing silently.
 (function () {
   'use strict';
+
+  // MediaSource everywhere, ManagedMediaSource on iPhone (iOS 17.1+).
+  var MS = window.MediaSource || window.ManagedMediaSource || null;
+  var usingManagedMSE = !window.MediaSource && !!window.ManagedMediaSource;
 
   // One shared connection across chat/stream/info so server handlers that
   // key off request.sid (e.g. video-reaction identity) see a single sid.
@@ -177,14 +189,60 @@
     try { els.player.load(); } catch (_) {}
   }
 
+  // The mime the server relays is what the broadcaster REQUESTED, which
+  // may lack a codecs= parameter (e.g. plain "video/mp4" from an older
+  // Safari broadcaster). MSE's isTypeSupported usually wants codecs, so
+  // fall back to the common codec pairs for the container.
+  function mimeCandidates(mime) {
+    var list = [];
+    if (mime) list.push(mime);
+    if (mime && mime.indexOf('codecs') === -1) {
+      var bare = mime.split(';')[0];
+      if (bare.indexOf('mp4') !== -1) {
+        list.push(bare + ';codecs=avc1.42E01E,mp4a.40.2');
+      } else {
+        list.push(bare + ';codecs=vp9,opus');
+        list.push(bare + ';codecs=vp8,opus');
+      }
+    }
+    return list;
+  }
+
+  function playableMime(mime) {
+    if (!MS || typeof MS.isTypeSupported !== 'function') return null;
+    var candidates = mimeCandidates(mime);
+    for (var i = 0; i < candidates.length; i++) {
+      if (MS.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return null;
+  }
+
+  // Tell the server whether this browser can actually play the current
+  // broadcast — the broadcaster page shows a "N viewers can't play this"
+  // chip fed by these reports (real data, not codec guesswork). Only
+  // emit when the verdict changes so reconnect/re-init churn stays quiet.
+  var lastPlaybackReport = null;
+  function reportPlayback(ok) {
+    if (lastPlaybackReport === ok) return;
+    lastPlaybackReport = ok;
+    if (socket.connected) socket.emit('viewer:playback', { ok: ok });
+  }
+
   function initMSE(mime) {
-    if (!window.MediaSource || !MediaSource.isTypeSupported(mime)) {
+    var usable = playableMime(mime);
+    if (!usable) {
       console.warn('MediaSource cannot play mime:', mime);
+      showFormatWarning(mime);
+      reportPlayback(false);
       return false;
     }
+    hideFormatWarning();
     resetMSE();
-    state.mime = mime;
-    state.mediaSource = new MediaSource();
+    state.mime = usable;
+    state.mediaSource = new MS();
+    // ManagedMediaSource refuses to open unless remote playback (AirPlay)
+    // is explicitly disabled on the media element.
+    if (usingManagedMSE) els.player.disableRemotePlayback = true;
     state.mediaUrl = URL.createObjectURL(state.mediaSource);
     els.player.src = state.mediaUrl;
 
@@ -193,13 +251,48 @@
         state.sourceBuffer = state.mediaSource.addSourceBuffer(state.mime);
       } catch (err) {
         console.error('addSourceBuffer failed:', err);
+        reportPlayback(false);
         return;
       }
-      state.sourceBuffer.mode = 'sequence';
+      reportPlayback(true);
+      // Sequence mode keeps WebM cluster appends gapless. For fMP4 we
+      // leave the default 'segments' mode: fragment timestamps are
+      // authoritative, and WebKit's sequence-mode handling of fMP4 is
+      // unreliable.
+      if (state.mime.indexOf('mp4') === -1) {
+        state.sourceBuffer.mode = 'sequence';
+      }
       state.sourceBuffer.addEventListener('updateend', drainQueue);
       drainQueue();
     });
     return true;
+  }
+
+  // ── Unsupported-format messaging ─────────────────────────────────────
+  // Reuses the #browser-warning banner (see browser-warning.js) with a
+  // message specific to the active broadcast, shown even if the generic
+  // banner was previously dismissed — this one means "no video for you",
+  // not "video may stutter".
+  function showFormatWarning(mime) {
+    var banner = document.getElementById('browser-warning');
+    if (!banner) return;
+    var text = banner.querySelector('.browser-warning-text');
+    if (text) {
+      text.textContent = (mime && mime.indexOf('webm') !== -1)
+        ? 'This browser can’t play the current broadcast (WebM). ' +
+          'Watch in Chrome, Edge, or Firefox — or ask the host to ' +
+          'broadcast from Chrome or Safari so Apple devices can tune in.'
+        : 'This browser can’t play the current broadcast’s ' +
+          'video format. Try updating it, or watch in Chrome or Firefox.';
+    }
+    banner.hidden = false;
+    document.body.classList.add('has-browser-warning');
+  }
+  function hideFormatWarning() {
+    var banner = document.getElementById('browser-warning');
+    if (!banner || banner.hidden) return;
+    banner.hidden = true;
+    document.body.classList.remove('has-browser-warning');
   }
 
   function drainQueue() {
@@ -262,15 +355,56 @@
   // large drift. A viewer who has manually paused is left alone.
   var LIVE_SYNC = {
     target: 3,     // everyone aims to sit ~3s behind live (cushion vs. stalls)
-    nudge:  4,     // trailing more than this → play slightly faster to catch up
-    seek:   6,     // trailing more than this → jump straight to the live edge
+    nudge:  1,     // trailing target by more → play slightly faster to catch up
+    seek:   3,     // trailing target by more → jump straight to the live edge
     rate:   1.1,   // catch-up playback rate (pitch is preserved by the browser)
   };
+
+  // Chunk cadence varies wildly by broadcaster: WebM and Safari-fMP4
+  // recorders honor the 250ms timeslice, but Chrome's fMP4 muxer only
+  // emits a chunk per keyframe (~every 6-7s). A fixed 3s cushion would
+  // starve between such bursts (play 3s, stall 4s, hard-seek, repeat),
+  // so the cushion adapts: a bit more than the largest recent
+  // inter-chunk gap, never below the 3s floor. Everyone still converges
+  // to the same distance behind the live edge, so the watch-party sync
+  // property is preserved — just with a cadence-appropriate cushion.
+  var chunkGaps = [];       // last few inter-chunk arrival gaps, seconds
+  var lastChunkAt = 0;      // performance.now() of the previous chunk
+  function noteChunkArrival() {
+    var now = performance.now();
+    if (lastChunkAt) {
+      var gap = (now - lastChunkAt) / 1000;
+      // A pause / network hiccup shouldn't permanently inflate the
+      // cushion — gaps that large aren't a cadence.
+      if (gap <= 20) {
+        chunkGaps.push(gap);
+        if (chunkGaps.length > 6) chunkGaps.shift();
+      }
+    }
+    lastChunkAt = now;
+  }
+  function resetChunkCadence() {
+    chunkGaps = [];
+    lastChunkAt = 0;
+  }
+  function syncTarget() {
+    var gapMax = 0;
+    for (var i = 0; i < chunkGaps.length; i++) {
+      if (chunkGaps[i] > gapMax) gapMax = chunkGaps[i];
+    }
+    return Math.max(LIVE_SYNC.target, Math.min(15, gapMax + 2.5));
+  }
+
   function syncToLive() {
     var sb = state.sourceBuffer, v = els.player;
-    // Don't touch a manually-paused viewer, a seek in progress, or an
-    // offline player with nothing buffered. Clear the syncing pill if the
-    // viewer has paused so it doesn't linger.
+    // A paused-but-live player is always a stall, never a choice — this
+    // page has no pause control. WebKit pauses the element on SourceBuffer
+    // underrun and won't resume when data arrives, and iOS pauses on tab
+    // background; nudge playback back to life in both cases. (tryAutoplay
+    // falls back to muted playback if the browser blocks unmuted play.)
+    if (v && v.paused && state.streamLive && !v.ended && sb) tryAutoplay();
+    // Don't fight a seek in progress, or an offline player with nothing
+    // buffered. Clear the syncing pill while paused so it doesn't linger.
     if (v && v.paused) setSyncing(false);
     if (!sb || !v || v.paused || v.seeking || !state.streamLive) return;
     var buf;
@@ -278,15 +412,16 @@
     if (!buf.length) return;
     var liveEdge = buf.end(buf.length - 1);
     var drift = liveEdge - v.currentTime;
+    var target = syncTarget();
     var seeked = false;
-    if (drift > LIVE_SYNC.seek) {
+    if (drift > target + LIVE_SYNC.seek) {
       // Way behind (e.g. tab was backgrounded) — snap to the live edge.
-      try { v.currentTime = Math.max(buf.start(0), liveEdge - LIVE_SYNC.target); } catch (_) {}
+      try { v.currentTime = Math.max(buf.start(0), liveEdge - target); } catch (_) {}
       if (v.playbackRate !== 1) v.playbackRate = 1;
       seeked = true;
-    } else if (drift > LIVE_SYNC.nudge) {
+    } else if (drift > target + LIVE_SYNC.nudge) {
       if (v.playbackRate === 1) v.playbackRate = LIVE_SYNC.rate;
-    } else if (drift <= LIVE_SYNC.target) {
+    } else if (drift <= target) {
       if (v.playbackRate !== 1) v.playbackRate = 1;   // close enough — normal speed
     }
     updateLatency(drift);
@@ -319,6 +454,7 @@
   socket.on('connect', function () {
     setStatus('connected', 'Connected');
     rememberedTried = false;   // allow one silent auto-auth per connection
+    lastPlaybackReport = null; // fresh sid server-side — re-report if needed
     socket.emit('viewer:join');
   });
   // When the socket drops or can't be established, say so on the lock
@@ -370,20 +506,27 @@
 
   socket.on('stream:paused', function (info) {
     setPaused(!!(info && info.paused));
+    // Don't let the paused silence read as a slow chunk cadence.
+    resetChunkCadence();
   });
 
   socket.on('stream:init', function (info) {
     if (!info || !info.mime) return;
+    resetChunkCadence();
     initMSE(info.mime);
   });
 
   socket.on('stream:chunk', function (data) {
     // socket.io binary delivery: data is ArrayBuffer in modern clients.
     var buf = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+    noteChunkArrival();
     if (!state.sourceBuffer && !state.mediaSource) {
-      // Late-joiner case: init segment arrives before stream:init. Try
-      // common mimes until one sticks.
-      var fallback = state.mime || 'video/webm;codecs=vp8,opus';
+      // Late-joiner case: init segment arrives before stream:init. The
+      // last stream:state snapshot knows the broadcast mime; fall back
+      // to WebM only if we truly have nothing to go on.
+      var fallback = state.mime ||
+        (state.lastSnap && state.lastSnap.mime_type) ||
+        'video/webm;codecs=vp8,opus';
       if (!initMSE(fallback)) return;
     }
     pushChunk(buf);
@@ -398,6 +541,7 @@
   socket.on('stream:ended', function () {
     setLive(false);
     setStatus('connected', 'Stream ended');
+    hideFormatWarning();   // any can't-play-this-broadcast notice is stale now
     setTimeout(resetMSE, 250);
   });
 
@@ -664,8 +808,14 @@
     var main = els.player.closest('.public-main');
     if (fsElement()) {
       (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
-    } else if (main) {
-      (main.requestFullscreen || main.webkitRequestFullscreen || function () {}).call(main);
+    } else if (main && (main.requestFullscreen || main.webkitRequestFullscreen)) {
+      (main.requestFullscreen || main.webkitRequestFullscreen).call(main);
+    } else if (typeof els.player.webkitEnterFullscreen === 'function') {
+      // iPhone: the element-fullscreen API doesn't exist — only the
+      // <video> itself can go fullscreen, via WebKit's native player
+      // (which also makes rotate-to-landscape work). Chat overlay isn't
+      // available there; the native controls take over.
+      try { els.player.webkitEnterFullscreen(); } catch (_) {}
     }
   });
   function onFullscreenChange() {
@@ -852,6 +1002,76 @@
   socket.on('video:reaction', function (info) {
     if (info && info.emoji) enqueueReaction(info);
   });
+
+  // ── Phone burger menu ────────────────────────────────────────────────
+  // On narrow screens the header action row (#public-actions) turns into
+  // a slide-down sheet; #menu-btn toggles it via body.menu-open. Desktop
+  // never sees the button (CSS), so none of this runs there in practice.
+  var menuBtn = document.getElementById('menu-btn');
+  var actionsPanel = document.getElementById('public-actions');
+  function setMenuOpen(open) {
+    document.body.classList.toggle('menu-open', open);
+    if (!menuBtn) return;
+    menuBtn.setAttribute('aria-expanded', String(open));
+    setHidden(menuBtn.querySelector('.ico-burger'), open);
+    setHidden(menuBtn.querySelector('.ico-close'), !open);
+  }
+  if (menuBtn) {
+    menuBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setMenuOpen(!document.body.classList.contains('menu-open'));
+    });
+    // Tapping anywhere outside the sheet closes it; so does using one of
+    // its actions (a navigation or the Now Showing modal opening).
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('menu-open')) return;
+      if (actionsPanel && actionsPanel.contains(e.target)) {
+        if (e.target.closest('a, button')) setMenuOpen(false);
+        return;
+      }
+      setMenuOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setMenuOpen(false);
+    });
+  }
+
+  // ── Phone chat sheet collapse ────────────────────────────────────────
+  // The chat rides as a bottom sheet under the video on phones. Its
+  // header doubles as a grab bar: tapping it (or the chevron) collapses
+  // the sheet down to the header so the video takes the whole screen.
+  // Desktop layouts ignore .is-collapsed entirely (CSS-scoped).
+  var chatPanelEl = document.getElementById('chat-panel');
+  var chatCollapseBtn = document.getElementById('chat-collapse-btn');
+  var LS_CHAT_COLLAPSED = 'vbs-chat-collapsed';
+  function setChatCollapsed(collapsed, persist) {
+    if (!chatPanelEl) return;
+    chatPanelEl.classList.toggle('is-collapsed', collapsed);
+    if (chatCollapseBtn) {
+      chatCollapseBtn.setAttribute('aria-expanded', String(!collapsed));
+      chatCollapseBtn.title = collapsed ? 'Expand chat' : 'Collapse chat';
+    }
+    if (persist) {
+      try { localStorage.setItem(LS_CHAT_COLLAPSED, collapsed ? '1' : '0'); } catch (_) {}
+    }
+  }
+  if (chatPanelEl && chatCollapseBtn) {
+    chatCollapseBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      setChatCollapsed(!chatPanelEl.classList.contains('is-collapsed'), true);
+    });
+    var chatHeaderEl = chatPanelEl.querySelector('.chat-header');
+    if (chatHeaderEl) {
+      chatHeaderEl.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;   // talk/leave/etc. keep their jobs
+        if (!window.matchMedia('(max-width: 48rem)').matches) return;
+        setChatCollapsed(!chatPanelEl.classList.contains('is-collapsed'), true);
+      });
+    }
+    try {
+      if (localStorage.getItem(LS_CHAT_COLLAPSED) === '1') setChatCollapsed(true, false);
+    } catch (_) {}
+  }
 
   // Pin toggle (fullscreen overlay only). Pinned = chat stays open;
   // unpinned = chat auto-hides off the right edge and peeks in on hover.
