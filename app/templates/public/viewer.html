@@ -56,7 +56,7 @@
       {% else %}
         <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">Sign in</a>
       {% endif %}
-      <span class="menu-version">{{ app_name }} v{{ app_version }}</span>
+      <span class="menu-version">{% include "_built_by.html" %}</span>
     </div>
 
     <!-- Phone-only burger that opens/closes the sheet above. -->
@@ -446,7 +446,7 @@
   </main>
 
   <footer class="public-foot">
-    <span class="muted">{{ app_name }} · v{{ app_version }}</span>
+    {% include "_built_by.html" %}
   </footer>
 
   <!-- Locked-stream overlay. Full-page, login-card style. Visible on
@@ -455,9 +455,45 @@
        "unlocked" or "auth_ok". -->
   <div class="lock-screen" id="lock-screen">
     <div class="lock-card">
+      <!-- Now Showing poster panel — a movie-ticket side panel on wide
+           screens, a cropped banner on phones. Filled by info.js and
+           only revealed (CSS) when an entry is set; hidden entirely when
+           the entry has no poster. -->
+      <div class="lock-ns-poster" id="lock-ns-poster-wrap" hidden
+           role="button" tabindex="-1" aria-label="View poster full screen">
+        <img id="lock-ns-poster" alt="" hidden>
+      </div>
+
+      <div class="lock-card-inner">
       <img class="lock-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="" aria-hidden="true">
+
+      <!-- Now Showing headline — replaces the generic "Protected stream"
+           heading when an entry is set (CSS-swapped via html.has-now-showing). -->
+      <div class="lock-ns-head">
+        <div class="lock-ns-eyebrow">Now showing</div>
+        <h2 class="lock-ns-title" id="lock-ns-title">—</h2>
+        <p class="lock-ns-desc" id="lock-ns-desc" hidden></p>
+        <div class="lock-ns-links">
+          <a id="lock-ns-imdb" class="info-link" href="#" target="_blank" rel="noopener" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            <span>View on IMDB</span>
+          </a>
+          <a id="lock-ns-trailer" class="info-link info-link--accent" href="#" target="_blank" rel="noopener" hidden>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span>Watch trailer</span>
+          </a>
+        </div>
+      </div>
+
       <div class="lock-title">Protected stream</div>
       <div class="lock-sub">Enter the 5-character code shared with you to watch.</div>
+
+      <!-- Showtime countdown — only while the curtain is closed AND the
+           broadcaster set a time. Ticks locally (stream-viewer.js). -->
+      <div class="lock-countdown" id="lock-countdown" hidden>
+        <div class="lock-countdown-label">Show begins in</div>
+        <div class="lock-countdown-time" id="lock-countdown-time" aria-live="off">--:--</div>
+      </div>
       <form class="lock-form" id="lock-form" novalidate>
         <input type="text" class="lock-input" id="lock-input"
                maxlength="5" inputmode="latin"
@@ -474,11 +510,12 @@
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
         <span>Planning to join the voice chat? Pop on a pair of headphones — it keeps everyone's audio clear and echo-free.</span>
       </div>
+      </div><!-- /.lock-card-inner -->
     </div>
 
-    <!-- Pinned to the bottom of the lock screen. The normal page footer
-         is pulled out of the layout while .locked is on, so version +
-         admin sign-in live here instead. -->
+    <!-- Flows after the card. The normal page footer is pulled out of
+         the layout while .locked is on, so version + admin sign-in live
+         here instead. -->
     <div class="lock-foot">
       {% if current_user.is_authenticated %}
         <a class="lock-foot-link" href="{{ url_for('admin.dashboard') }}">Admin dashboard</a>
@@ -486,8 +523,15 @@
         <a class="lock-foot-link" href="{{ url_for('auth.login') }}">Admin sign in</a>
       {% endif %}
       <span class="lock-foot-sep" aria-hidden="true">·</span>
-      <span class="lock-foot-version">{{ app_name }} v{{ app_version }}</span>
+      <span class="lock-foot-version">{% include "_built_by.html" %}</span>
     </div>
+  </div>
+
+  <!-- Poster lightbox — opened by tapping the lock-card poster (info.js).
+       Above the lock screen; any click or Escape closes it. -->
+  <div class="poster-lightbox" id="poster-lightbox" hidden
+       role="dialog" aria-modal="true" aria-label="Poster">
+    <img id="poster-lightbox-img" alt="">
   </div>
 
   <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/browser-warning.js') }}"></script>

@@ -276,6 +276,12 @@ class StreamLock(db.Model):
     id = db.Column(db.Integer, primary_key=True)   # always 1
     enabled = db.Column(db.Boolean, nullable=False, default=False)
     code = db.Column(db.String(5))                  # nullable when unlocked
+    # Curtain: when closed, nobody gets in at all — the code form is
+    # hidden and viewers only see the Now Showing card. Overrides the lock.
+    curtain_closed = db.Column(db.Boolean, nullable=False, default=False)
+    # Optional showtime for the closed curtain: UTC epoch seconds. When
+    # set, the curtain screen shows a live "Doors open in …" countdown.
+    curtain_eta = db.Column(db.Integer)
 
 
 class ChatSession(db.Model):

@@ -61,6 +61,12 @@
     alertText:      document.getElementById('video-alert-text'),
     lockCode:     document.getElementById('lock-code'),
     lockRandomize: document.getElementById('lock-randomize'),
+    curtainOpenBtn:   document.getElementById('curtain-open-btn'),
+    curtainClosedBtn: document.getElementById('curtain-closed-btn'),
+    curtainEtaInput:  document.getElementById('curtain-eta-input'),
+    curtainEtaSet:    document.getElementById('curtain-eta-set'),
+    curtainEtaClear:  document.getElementById('curtain-eta-clear'),
+    curtainEtaStatus: document.getElementById('curtain-eta-status'),
     lockTip:      document.getElementById('lock-tip'),
     chatModToggle: document.getElementById('chat-mod-toggle'),
     chatModCount: document.getElementById('chat-mod-count'),
@@ -2644,6 +2650,78 @@
     });
   }
 
+  // ── Curtain (Open/Closed) ────────────────────────────────────────────
+  // Closed = nobody gets in, code or no code; viewers only see the Now
+  // Showing card. The SERVER owns this state (DB-persisted) — the UI
+  // initializes from the stream:state snapshot pushed on connect and
+  // updates optimistically on click.
+  function syncCurtainUI(closed) {
+    if (!els.curtainOpenBtn || !els.curtainClosedBtn) return;
+    els.curtainOpenBtn.classList.toggle('is-active', !closed);
+    els.curtainClosedBtn.classList.toggle('is-active', !!closed);
+    els.curtainOpenBtn.setAttribute('aria-pressed', String(!closed));
+    els.curtainClosedBtn.setAttribute('aria-pressed', String(!!closed));
+  }
+  function setCurtain(closed) {
+    syncCurtainUI(closed);
+    socket.emit('bcast:set_curtain', { closed: !!closed });
+  }
+  if (els.curtainOpenBtn && els.curtainClosedBtn) {
+    els.curtainOpenBtn.addEventListener('click', function () { setCurtain(false); });
+    els.curtainClosedBtn.addEventListener('click', function () { setCurtain(true); });
+  }
+
+  // Showtime countdown target for the closed curtain. Server-owned like
+  // the curtain itself; the status line ticks locally once armed.
+  var curtainEta = null;            // UTC epoch seconds, or null
+  var curtainEtaTick = null;
+  var ETA_STATUS_DEFAULT = els.curtainEtaStatus ? els.curtainEtaStatus.textContent : '';
+
+  function fmtEtaStatus(eta) {
+    var rem = Math.floor(eta - Date.now() / 1000);
+    var when = new Date(eta * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (rem <= 0) return 'Countdown reached ' + when + ' — viewers see "any moment now". Open the curtain when ready.';
+    var h = Math.floor(rem / 3600), m = Math.floor((rem % 3600) / 60);
+    var left = h > 0 ? h + 'h ' + m + 'm' : m > 0 ? m + 'm' : rem + 's';
+    return 'Counting down to ' + when + ' — ' + left + ' to go. Viewers see it while the curtain is closed.';
+  }
+  function syncCurtainEtaUI(eta) {
+    curtainEta = eta || null;
+    if (!els.curtainEtaStatus) return;
+    setHidden(els.curtainEtaClear, !curtainEta);
+    if (curtainEtaTick) { clearInterval(curtainEtaTick); curtainEtaTick = null; }
+    if (!curtainEta) {
+      els.curtainEtaStatus.textContent = ETA_STATUS_DEFAULT;
+      els.curtainEtaStatus.classList.remove('is-armed');
+      return;
+    }
+    els.curtainEtaStatus.classList.add('is-armed');
+    els.curtainEtaStatus.textContent = fmtEtaStatus(curtainEta);
+    curtainEtaTick = setInterval(function () {
+      els.curtainEtaStatus.textContent = fmtEtaStatus(curtainEta);
+    }, 1000);
+  }
+  if (els.curtainEtaSet) {
+    els.curtainEtaSet.addEventListener('click', function () {
+      var v = els.curtainEtaInput.value;   // "HH:MM"
+      if (!v) { els.curtainEtaInput.focus(); return; }
+      var parts = v.split(':');
+      var d = new Date();
+      d.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+      // A time already past today means tomorrow's showtime.
+      if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+      var at = Math.round(d.getTime() / 1000);
+      syncCurtainEtaUI(at);
+      socket.emit('bcast:set_curtain_eta', { at: at });
+    });
+  }
+  if (els.curtainEtaClear) {
+    els.curtainEtaClear.addEventListener('click', function () {
+      syncCurtainEtaUI(null);
+      socket.emit('bcast:set_curtain_eta', { at: null });
+    });
+  }
+
   // ── Socket.IO wiring ─────────────────────────────────────────────────
   socket.on('connect', function () {
     setStatus('connected', 'Connected');
@@ -2666,6 +2744,18 @@
     stopLive();
   });
   socket.on('connect_error', function () { setStatus('error', 'Connect error'); });
+
+  // Pushed to every connecting socket (see events._on_connect) — the
+  // broadcaster page uses it to hydrate server-owned UI (curtain state,
+  // playback-issue count) on load/reconnect.
+  socket.on('stream:state', function (snap) {
+    if (!snap) return;
+    if (typeof snap.curtain !== 'undefined') syncCurtainUI(!!snap.curtain);
+    if (typeof snap.curtain_eta !== 'undefined') syncCurtainEtaUI(snap.curtain_eta);
+    if (typeof snap.playback_issues !== 'undefined') {
+      updatePlaybackIssues(snap.playback_issues);
+    }
+  });
 
   socket.on('bcast:started', function (snap) {
     beginRecorder();

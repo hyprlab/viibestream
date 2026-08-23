@@ -276,6 +276,34 @@
             Toggling the lock or rotating the code kicks current viewers
             back to the lock screen.
           </span>
+
+          <div class="curtain-row">
+            <span class="curtain-label">Curtain</span>
+            <div class="curtain-seg" role="group" aria-label="Curtain">
+              <button type="button" class="curtain-seg-btn is-active"
+                      id="curtain-open-btn" aria-pressed="true">Open</button>
+              <button type="button" class="curtain-seg-btn"
+                      id="curtain-closed-btn" aria-pressed="false">Closed</button>
+            </div>
+          </div>
+          <span class="muted file-hint">
+            Closed = nobody gets in, even with the code — viewers only see
+            the Now Showing card. Open = normal access (code above, if
+            enabled).
+          </span>
+
+          <div class="curtain-eta-row">
+            <label class="curtain-eta-label" for="curtain-eta-input">Show starts at</label>
+            <input type="time" id="curtain-eta-input" class="curtain-eta-input"
+                   aria-label="Showtime for the curtain countdown">
+            <button type="button" class="btn btn-ghost btn-sm" id="curtain-eta-set">Set</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="curtain-eta-clear" hidden>Clear</button>
+          </div>
+          <span class="muted file-hint" id="curtain-eta-status">
+            Optional: while the curtain is closed, viewers see a live
+            countdown to this time. A time that's already passed today
+            means tomorrow. Cleared when the curtain opens.
+          </span>
         </div>
       </div>
 

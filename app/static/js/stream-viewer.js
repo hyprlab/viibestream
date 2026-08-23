@@ -488,6 +488,8 @@
     updateQualityChip(snap);
     setReactionsEnabled(snap.reactions_enabled !== false);
     setAlert(snap.alert || '');
+    // A showtime set/cleared mid-curtain arrives via this snapshot.
+    updateCurtainCountdown();
     // We intentionally do NOT auto-hide the lock screen here based on
     // snap.lock_enabled. The lock screen ships visible on initial
     // render and stays until the server explicitly says "you're in"
@@ -625,10 +627,95 @@
     setHidden(els.lockError, true);
   });
 
+  // ── Curtain ──────────────────────────────────────────────────────────
+  // Closed = the broadcaster has shut the doors entirely: the lock screen
+  // shows (with the Now Showing card when one is set) but the code form
+  // is hidden — there's nothing to enter. Reopening is followed by the
+  // server routing us through the normal door (stream:locked /
+  // stream:auth_ok), which drives what the screen does next.
+  var lockTitleEl = document.querySelector('.lock-title');
+  var lockSubEl = document.querySelector('.lock-sub');
+  var LOCK_TITLE_DEFAULT = lockTitleEl ? lockTitleEl.textContent : '';
+  var LOCK_SUB_DEFAULT = lockSubEl ? lockSubEl.textContent : '';
+
+  function setCurtainScreen(closed) {
+    if (!els.lockScreen) return;
+    els.lockScreen.classList.toggle('is-curtain', closed);
+    if (closed) {
+      if (lockTitleEl) lockTitleEl.textContent = 'Doors are closed';
+      if (lockSubEl) {
+        lockSubEl.textContent =
+          'Check back soon — the show will open right here.';
+      }
+      clearLockoutCountdown();
+      setLockScreen(true);
+    } else {
+      if (lockTitleEl) lockTitleEl.textContent = LOCK_TITLE_DEFAULT;
+      if (lockSubEl) lockSubEl.textContent = LOCK_SUB_DEFAULT;
+      // Don't lift the screen here — the server's follow-up
+      // (stream:locked or stream:auth_ok) decides what happens next.
+    }
+    updateCurtainCountdown();
+  }
+
+  // Showtime countdown on the curtain screen. The target (UTC epoch
+  // seconds) rides in stream:state snapshots as `curtain_eta`; we tick
+  // locally against the client clock once visible.
+  var countdownWrap = document.getElementById('lock-countdown');
+  var countdownTime = document.getElementById('lock-countdown-time');
+  var countdownTick = null;
+
+  function fmtCountdown(rem) {
+    var d = Math.floor(rem / 86400);
+    var h = Math.floor((rem % 86400) / 3600);
+    var m = Math.floor((rem % 3600) / 60);
+    var s = rem % 60;
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    if (d > 0) return d + 'd ' + h + 'h ' + pad(m) + 'm';
+    if (h > 0) return h + ':' + pad(m) + ':' + pad(s);
+    return m + ':' + pad(s);
+  }
+  function updateCurtainCountdown() {
+    if (!countdownWrap) return;
+    var eta = state.lastSnap && state.lastSnap.curtain_eta;
+    var show = els.lockScreen &&
+               els.lockScreen.classList.contains('is-curtain') && !!eta;
+    setHidden(countdownWrap, !show);
+    // With a countdown on screen, the "check back soon" sub-line is
+    // redundant — the timer says it better (CSS hides .lock-sub).
+    if (els.lockScreen) els.lockScreen.classList.toggle('has-countdown', show);
+    if (!show) {
+      if (countdownTick) { clearInterval(countdownTick); countdownTick = null; }
+      return;
+    }
+    var rem = Math.floor(eta - Date.now() / 1000);
+    if (rem <= 0) {
+      countdownTime.textContent = 'Any moment now…';
+      countdownWrap.classList.add('is-imminent');
+    } else {
+      countdownTime.textContent = fmtCountdown(rem);
+      countdownWrap.classList.remove('is-imminent');
+    }
+    if (!countdownTick) countdownTick = setInterval(updateCurtainCountdown, 1000);
+  }
+
+  socket.on('stream:curtain', function (info) {
+    var closed = !!(info && info.closed);
+    if (closed) {
+      // Drop any buffered video so nothing plays behind the curtain.
+      // (viewer:auth is server-blocked while closed, so a remembered
+      // code can't sneak in; after reopening, the server's stream:locked
+      // still lets it retry silently.)
+      resetMSE();
+    }
+    setCurtainScreen(closed);
+  });
+
   socket.on('stream:locked', function () {
     // Server is gating chunks until we provide the right code. Throw
     // away anything we'd already buffered so we don't keep playing
     // stale frames behind the lock screen.
+    setCurtainScreen(false);   // the code prompt supersedes any curtain view
     resetMSE();
     // If we have a remembered code, try it silently once before showing
     // the prompt — so an unchanged code never makes the viewer re-type

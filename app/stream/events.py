@@ -85,10 +85,14 @@ def _viewer_join():
     snap = broadcast_state.snapshot()
     emit("stream:state", snap)
 
-    # If the stream is locked, gate the chunk delivery until the viewer
-    # submits the right code via viewer:auth. Otherwise grant access
-    # immediately and ship the late-joiner buffer.
-    if snap.get("lock_enabled") and not broadcast_state.is_authorized(sid):
+    # Curtain closed: nobody gets in, code or no code — the client shows
+    # the Now Showing card with no entry form. Otherwise: if the stream
+    # is locked, gate the chunk delivery until the viewer submits the
+    # right code via viewer:auth; else grant access immediately and ship
+    # the late-joiner buffer.
+    if snap.get("curtain"):
+        emit("stream:curtain", {"closed": True})
+    elif snap.get("lock_enabled") and not broadcast_state.is_authorized(sid):
         emit("stream:locked", {})
     else:
         _grant_viewer_access(sid, snap)
@@ -173,6 +177,12 @@ def _viewer_auth(payload):
     code = (payload or {}).get("code", "")
     ip = _viewer_ip()
 
+    # No code gets past a closed curtain (the form is hidden client-side;
+    # this stops hand-rolled emits too).
+    if broadcast_state.curtain_is_closed():
+        emit("stream:curtain", {"closed": True})
+        return
+
     # Throttle BEFORE checking the code so an attacker doesn't get a
     # timing oracle on which codes "took longer".
     remaining = broadcast_state.auth_throttle_remaining(ip)
@@ -214,6 +224,9 @@ def _grant_viewer_access(sid: str, snap: dict) -> None:
     """Add the viewer to the chunk-receiving room, tell them the door is
     open (so the lock screen hides), and replay the late-joiner buffer
     so their MSE can start playing immediately."""
+    if broadcast_state.curtain_is_closed():
+        emit("stream:curtain", {"closed": True})
+        return
     join_room(AUTHED_VIEWERS_ROOM)
     emit("stream:auth_ok", {})
     if not snap.get("live"):
@@ -274,9 +287,9 @@ def _bcast_start(payload):
 
     if lock_changed:
         _apply_lock_transition(snap)
-    elif not snap.get("lock_enabled"):
-        # Lock unchanged + still off — make sure any viewer that joined
-        # while we were off-air is in the chunk room.
+    elif not snap.get("lock_enabled") and not snap.get("curtain"):
+        # Lock unchanged + still off (and the curtain is up) — make sure
+        # any viewer that joined while we were off-air is in the chunk room.
         for vsid in broadcast_state.viewer_sids():
             broadcast_state.authorize_viewer(vsid)
             try:
@@ -303,7 +316,16 @@ def _apply_lock_transition(snap: dict) -> None:
     quietly grant everyone access and replay the buffer."""
     if snap.get("lock_enabled"):
         socketio.close_room(AUTHED_VIEWERS_ROOM)
-        socketio.emit("stream:locked", {}, to=VIEWERS_ROOM)
+        if snap.get("curtain"):
+            # Code changed behind a closed curtain — viewers keep seeing
+            # the curtain, never the code prompt.
+            socketio.emit("stream:curtain", {"closed": True}, to=VIEWERS_ROOM)
+        else:
+            socketio.emit("stream:locked", {}, to=VIEWERS_ROOM)
+        return
+    if snap.get("curtain"):
+        # Lock turned off behind a closed curtain — viewers stay out
+        # until the curtain reopens (bcast:set_curtain handles entry).
         return
     # Unlocked: grant every viewer access and replay the late-joiner
     # buffer so their MSE picks up the stream without a manual refresh.
@@ -320,6 +342,90 @@ def _apply_lock_transition(snap: dict) -> None:
                           to=AUTHED_VIEWERS_ROOM)
             socketio.emit("stream:chunk", data, to=AUTHED_VIEWERS_ROOM)
     socketio.emit("stream:unlocked", {}, to=VIEWERS_ROOM)
+
+
+@socketio.on("bcast:set_curtain")
+def _bcast_set_curtain(payload):
+    """Open/close the curtain. Closed = nobody receives the stream and the
+    viewer page shows the Now Showing card with no code entry; overrides
+    the lock. Allowed for any broadcaster-capable user, live or not, and
+    persisted so it survives restarts."""
+    if not current_user.is_authenticated or not current_user.can_broadcast():
+        emit("bcast:error", {"message": "Not authorized."})
+        return
+    closed = bool((payload or {}).get("closed"))
+    changed = broadcast_state.set_curtain(closed)
+    if not closed:
+        # The showtime is a one-shot: opening the curtain retires it so a
+        # later close never shows a stale countdown.
+        broadcast_state.set_curtain_eta(None)
+    from .state import persist_lock
+    persist_lock()
+    snap = broadcast_state.snapshot()
+    socketio.emit("stream:state", snap, to=VIEWERS_ROOM)
+    emit("stream:state", snap)   # sync the (non-viewer) admin socket too
+    if not changed:
+        return
+    if closed:
+        # Drop everyone out of the chunk room. Authed sids are kept in
+        # state, so reopening won't re-prompt viewers who had the code.
+        socketio.close_room(AUTHED_VIEWERS_ROOM)
+        socketio.emit("stream:curtain", {"closed": True}, to=VIEWERS_ROOM)
+        return
+    # Reopening: tell every viewer the curtain is up, then route each one
+    # through the normal door — straight in when no lock is set (or they
+    # already entered the code), the code prompt otherwise.
+    socketio.emit("stream:curtain", {"closed": False}, to=VIEWERS_ROOM)
+    for vsid in broadcast_state.viewer_sids():
+        if broadcast_state.is_authorized(vsid):
+            _grant_access_to_sid(vsid, snap)
+        else:
+            socketio.emit("stream:locked", {}, to=vsid)
+
+
+@socketio.on("bcast:set_curtain_eta")
+def _bcast_set_curtain_eta(payload):
+    """Set/clear the showtime countdown shown on the closed-curtain
+    screen. `at` is UTC epoch seconds (or null to clear); must land
+    within the next 7 days. Broadcaster-capable users only; persisted."""
+    if not current_user.is_authenticated or not current_user.can_broadcast():
+        emit("bcast:error", {"message": "Not authorized."})
+        return
+    at = (payload or {}).get("at")
+    if at is not None:
+        try:
+            at = int(at)
+        except (TypeError, ValueError):
+            emit("bcast:error", {"message": "Invalid countdown time."})
+            return
+        now = time.time()
+        if not (now - 60 <= at <= now + 7 * 86400):
+            emit("bcast:error", {"message": "Countdown must be within the next 7 days."})
+            return
+    if broadcast_state.set_curtain_eta(at):
+        from .state import persist_lock
+        persist_lock()
+        snap = broadcast_state.snapshot()
+        socketio.emit("stream:state", snap, to=VIEWERS_ROOM)
+        emit("stream:state", snap)   # sync the (non-viewer) admin socket too
+
+
+def _grant_access_to_sid(vsid: str, snap: dict) -> None:
+    """Server-initiated version of _grant_viewer_access for a sid other
+    than the current request's (used when the curtain reopens): enter the
+    chunk room, lift the lock screen, and replay the late-joiner buffer."""
+    broadcast_state.authorize_viewer(vsid)
+    try:
+        socketio.server.enter_room(vsid, AUTHED_VIEWERS_ROOM, namespace="/")
+    except Exception:
+        pass
+    socketio.emit("stream:auth_ok", {}, to=vsid)
+    if not snap.get("live"):
+        return
+    payload = broadcast_state.late_joiner_payload()
+    if payload:
+        socketio.emit("stream:init", {"mime": snap.get("mime_type")}, to=vsid)
+        socketio.emit("stream:chunk", payload, to=vsid)
 
 
 @socketio.on("bcast:set_reactions")

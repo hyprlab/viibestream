@@ -329,6 +329,23 @@ def _ensure_schema(app: Flask) -> None:
                 db.session.commit()
                 app.logger.info("Added app_settings.%s for branding.", col)
 
+    # Curtain state on stream_lock (added after first boot).
+    if "stream_lock" in inspector.get_table_names():
+        lock_cols = {c["name"] for c in inspector.get_columns("stream_lock")}
+        if "curtain_closed" not in lock_cols:
+            db.session.execute(text(
+                "ALTER TABLE stream_lock ADD COLUMN curtain_closed "
+                "BOOLEAN NOT NULL DEFAULT 0"
+            ))
+            db.session.commit()
+            app.logger.info("Added stream_lock.curtain_closed for the curtain.")
+        if "curtain_eta" not in lock_cols:
+            db.session.execute(text(
+                "ALTER TABLE stream_lock ADD COLUMN curtain_eta INTEGER"
+            ))
+            db.session.commit()
+            app.logger.info("Added stream_lock.curtain_eta for the countdown.")
+
 
 # ── First-boot bootstrap ────────────────────────────────────────────────────
 

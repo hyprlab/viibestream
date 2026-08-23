@@ -31,6 +31,53 @@
     };
   });
 
+  // Lock-screen "movie ticket": poster side panel + eyebrow/title/desc
+  // above the access-code form. Revealed by CSS via html.has-now-showing;
+  // the poster panel is additionally hidden when no poster is uploaded.
+  var lockNs = {
+    posterWrap: document.getElementById('lock-ns-poster-wrap'),
+    poster:     document.getElementById('lock-ns-poster'),
+    title:      document.getElementById('lock-ns-title'),
+    desc:       document.getElementById('lock-ns-desc'),
+    imdb:       document.getElementById('lock-ns-imdb'),
+    trailer:    document.getElementById('lock-ns-trailer'),
+  };
+
+  function fillLock(info) {
+    if (!lockNs.title) return;
+    lockNs.title.textContent = info.title || 'Tonight\'s broadcast';
+    if (info.description) {
+      lockNs.desc.textContent = info.description;
+      setHidden(lockNs.desc, false);
+    } else {
+      lockNs.desc.textContent = '';
+      setHidden(lockNs.desc, true);
+    }
+    if (info.has_poster) {
+      lockNs.poster.src = '/poster?v=' + encodeURIComponent(info.poster_etag || Date.now());
+      setHidden(lockNs.poster, false);
+      setHidden(lockNs.posterWrap, false);
+    } else {
+      lockNs.poster.removeAttribute('src');
+      setHidden(lockNs.poster, true);
+      setHidden(lockNs.posterWrap, true);
+    }
+    if (info.imdb_url) {
+      lockNs.imdb.href = info.imdb_url;
+      setHidden(lockNs.imdb, false);
+    } else {
+      lockNs.imdb.href = '#';
+      setHidden(lockNs.imdb, true);
+    }
+    if (info.trailer_url) {
+      lockNs.trailer.href = info.trailer_url;
+      setHidden(lockNs.trailer, false);
+    } else {
+      lockNs.trailer.href = '#';
+      setHidden(lockNs.trailer, true);
+    }
+  }
+
   function setHidden(el, hide) {
     if (!el) return;
     if (hide) el.setAttribute('hidden', '');
@@ -103,6 +150,7 @@
     // the .has-now-showing flag is what swaps the plain "Paused"/"OFF AIR"
     // message for the card (CSS-driven, see public.css).
     cards.forEach(function (c) { fillCard(c, info); });
+    fillLock(info);
     document.documentElement.classList.toggle('has-now-showing', hasAnyInfo(info));
   }
 
@@ -144,6 +192,27 @@
       c.trailer.href = '#';
       setHidden(c.trailer, true);
     }
+  }
+
+  // ── Poster lightbox ──────────────────────────────────────────────────
+  // Tapping the lock-card poster opens it full screen; any click on the
+  // overlay (or Escape) closes it.
+  var lightbox = document.getElementById('poster-lightbox');
+  var lightboxImg = document.getElementById('poster-lightbox-img');
+
+  function closeLightbox() {
+    if (lightbox) lightbox.setAttribute('hidden', '');
+  }
+  if (lightbox && lightboxImg && lockNs.posterWrap) {
+    lockNs.posterWrap.addEventListener('click', function () {
+      if (!lockNs.poster || !lockNs.poster.src) return;
+      lightboxImg.src = lockNs.poster.src;
+      lightbox.removeAttribute('hidden');
+    });
+    lightbox.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeLightbox();
+    });
   }
 
   // Initial fetch — one HTTP call so we have something to render

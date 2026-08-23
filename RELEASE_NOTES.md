@@ -8,7 +8,23 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.4.1 — 2026-08-23 (latest) — Now Showing link previews
+## 0.4.5 — 2026-08-23 (latest) — Curtain countdown
+
+- **Tell everyone when the show starts.** Set a "Show starts at" time next to the Curtain control and, while the curtain is closed, viewers see a live **Show begins in 12:34** countdown beneath tonight’s Now Showing card. When it reaches zero it reads "Any moment now…" until you open the curtain — and opening it clears the timer for next time.
+
+## 0.4.4 — 2026-08-23 — Curtain
+
+- **Close the doors completely.** A new **Curtain** toggle (Open/Closed) sits under the access code on the broadcast page. Close it and nobody gets in — even with the code. Visitors see tonight's Now Showing card with a "doors are closed, check back soon" note instead of the code box. Reopen when you're ready: viewers who already entered the code slip straight back in, everyone else gets the code prompt as usual.
+
+## 0.4.3 — 2026-08-23 — Now Showing on the lock screen
+
+- **The code screen sells the show.** When a Now Showing entry is set, the access-code card turns into a movie ticket: poster down the side (a cinematic banner on phones), the film's title and a taste of the description up top — with the IMDB and trailer buttons — and the code entry right below. Guests can check out tonight's film before they even type the code.
+
+## 0.4.2 — 2026-08-23 — Built by Hyprlab
+
+- **A proper credit line.** The viewer footer now reads "Built by Hyprlab" with the Hyprlab mark, linking to the project page — shown in the footer on desktop, the menu on phones, and on the access-code screen.
+
+## 0.4.1 — 2026-08-23 — Now Showing link previews
 
 - **Share what's playing.** When a Now Showing entry is set, sharing the viewer link now unfurls with the movie's poster, title, and description — so the invite itself says what tonight's film is. Clear Now Showing (or skip the poster) and the preview falls back to your regular branding image.
 
