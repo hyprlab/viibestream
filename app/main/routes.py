@@ -2,7 +2,8 @@
 import os
 
 from flask import (
-    Blueprint, Response, abort, current_app, jsonify, render_template, send_file,
+    Blueprint, Response, abort, current_app, jsonify, render_template,
+    send_file, url_for,
 )
 
 from ..chat.state import CHAT_EMOJIS
@@ -11,6 +12,40 @@ from ..stream.state import broadcast_state
 
 bp = Blueprint("main", __name__)
 
+# OpenGraph descriptions get truncated by every platform anyway — cap ours
+# so the meta tag doesn't carry the full 2000-char synopsis.
+_OG_DESC_MAX = 300
+
+
+def _viewer_og_context() -> dict:
+    """OpenGraph overrides for the shared public link. When a Now Showing
+    entry is set, the link preview carries the movie's title, description,
+    and poster instead of the default branding; each field falls back
+    independently (e.g. no poster → branding image, movie title kept).
+    Returned kwargs override the context processor's defaults
+    (app/__init__.py::_register_template_globals). Now Showing data is
+    already public via /api/info and /poster, so this exposes nothing new."""
+    info = stream_info.public()
+    ctx: dict = {}
+    title = (info.get("title") or "").strip()
+    # Collapse whitespace/newlines — this lands inside a meta attribute.
+    desc = " ".join((info.get("description") or "").split())
+    if title:
+        ctx["og_title"] = title
+    if desc:
+        if len(desc) > _OG_DESC_MAX:
+            desc = desc[: _OG_DESC_MAX - 1].rstrip() + "…"
+        ctx["og_description"] = desc
+    if info.get("has_poster"):
+        # v= mirrors the poster etag so platforms re-crawl a swapped poster.
+        ctx["og_image_url"] = url_for(
+            "main.poster", v=info.get("poster_etag") or "", _external=True,
+        )
+        # Tells _meta_og.html to drop the 1200×630 size hints (posters are
+        # portrait) and to alt-text the image with the title.
+        ctx["og_image_is_poster"] = True
+    return ctx
+
 
 @bp.route("/")
 def viewer():
@@ -18,6 +53,7 @@ def viewer():
         "public/viewer.html",
         broadcast=broadcast_state.snapshot(),
         chat_emojis=CHAT_EMOJIS,
+        **_viewer_og_context(),
     )
 
 

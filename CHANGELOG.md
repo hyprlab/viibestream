@@ -11,6 +11,23 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-08-23
+
+### Added
+
+- **Now Showing link previews** (`main/routes.py::_viewer_og_context`,
+  `_meta_og.html`). When a Now Showing entry is set, sharing the public
+  link unfurls with the movie's title, description (whitespace-collapsed,
+  capped at 300 chars), and poster (`/poster?v=<etag>`, absolute + etag-
+  stamped so platforms re-crawl a swapped poster) instead of the default
+  branding. Each field falls back independently — no poster keeps the
+  branding OG image. Poster previews drop the hard-coded 1200×630 size
+  hints (posters are portrait) and alt-text the image with the title.
+  Scoped to the viewer route via render_template kwargs (they override
+  the context processor), so sign-in/admin pages keep the branding
+  preview. Now Showing data was already public via /api/info + /poster,
+  so the meta tags expose nothing new.
+
 ## [0.4.0] — 2026-08-22
 
 ### Added

@@ -1,17 +1,25 @@
 {# OpenGraph + Twitter Card tags for link previews when the page is shared.
    `app_name`, `og_title`, `og_description`, and `og_image_url` are injected
-   by the global context processor (app/__init__.py). `og_image_url` is
-   absolute and version-stamped so social platforms re-crawl when the
-   operator swaps the image from Settings → Branding. #}
+   by the global context processor (app/__init__.py); the public viewer
+   route overrides them with the Now Showing title/description/poster when
+   an entry is set (main/routes.py::_viewer_og_context, which also sets
+   `og_image_is_poster`). `og_image_url` is absolute and version-stamped so
+   social platforms re-crawl when the image changes. #}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="{{ app_name }}">
 <meta property="og:title" content="{{ og_title }}">
 <meta property="og:description" content="{{ og_description }}">
 <meta property="og:url" content="{{ request.url }}">
 <meta property="og:image" content="{{ og_image_url }}">
+{% if og_image_is_poster %}
+{# Posters are portrait (typically 2:3) and vary in size — no size hints;
+   crawlers measure the fetched image. Alt-text it with the title. #}
+<meta property="og:image:alt" content="{{ og_title }}">
+{% else %}
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="{{ app_name }}">
+{% endif %}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ og_title }}">
 <meta name="twitter:description" content="{{ og_description }}">
