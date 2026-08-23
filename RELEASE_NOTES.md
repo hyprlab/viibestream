@@ -8,7 +8,11 @@ The same content appears in-app under **Settings → About** with the
 release notes expanded by default and the changelog collapsed. Editing
 this file is the only step needed to update that view.
 
-## 0.4.0 — 2026-08-22 (latest) — Beautiful on phones
+## 0.4.1 — 2026-08-23 (latest) — Now Showing link previews
+
+- **Share what's playing.** When a Now Showing entry is set, sharing the viewer link now unfurls with the movie's poster, title, and description — so the invite itself says what tonight's film is. Clear Now Showing (or skip the poster) and the preview falls back to your regular branding image.
+
+## 0.4.0 — 2026-08-22 — Beautiful on phones
 
 - **A real phone experience.** On small screens the viewer is now an app, not a shrunken web page: the video runs edge to edge, the controls sit on the video itself in a slim translucent strip, and the chat lives in a bottom sheet — tap its header to collapse it and give the movie the whole screen (your choice is remembered).
 - **Tidy top bar.** On phones the header collapses into a burger menu holding Now Showing, your connection status, the sign-in link, and the version — just the logo and one button up top.
