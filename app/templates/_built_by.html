@@ -1,0 +1,14 @@
+{# "Built by [mark] Hyprlab · vX.Y.Z" credit line. Used in the viewer
+   footer, the phone burger sheet's version row, and the lock-screen
+   footer, so all three read identically. The mark is a 64px derivative
+   of img/icon_hyprlab.png (see also Settings → About). #}
+<span class="built-by">
+  Built by
+  <a class="built-by-link" href="https://hyprlab.co/viibestream/"
+     target="_blank" rel="noopener">
+    <img class="built-by-mark"
+         src="{{ url_for('static', filename='img/hyprlab-mark.png') }}"
+         alt="" aria-hidden="true">Hyprlab</a>
+  <span class="built-by-sep" aria-hidden="true">·</span>
+  <span class="built-by-version">v{{ app_version }}</span>
+</span>

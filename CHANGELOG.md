@@ -11,6 +11,84 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
+## [0.4.5] — 2026-08-23
+
+### Added
+
+- **Curtain countdown** (`stream.html`, `stream-broadcaster.js`,
+  `events.py::bcast:set_curtain_eta`, `state.py`, `stream-viewer.js`,
+  viewer template). A "Show starts at" time picker under the Curtain
+  toggle: the broadcaster sets a showtime (a passed time rolls to
+  tomorrow; validated server-side to within 7 days; persisted on
+  `stream_lock.curtain_eta`, migrated idempotently). While the curtain
+  is closed, viewers see a live "Show begins in H:MM:SS" ticker on the
+  curtain screen (amber, tabular digits; "Any moment now…" with a soft
+  pulse once it hits zero — the curtain still opens manually). The admin
+  status line mirrors the countdown; opening the curtain retires the
+  showtime so a later close never shows a stale one.
+- **Poster lightbox + lock-screen layout fixes** (`info.js`,
+  `public.css`, viewer template). Tapping the lock-card poster opens it
+  full screen over a blurred scrim (any tap or Escape closes). The
+  poster is never cropped anymore: both the desktop side panel (320px
+  wide; the card grows to 45rem so the content column keeps its 25rem)
+  and the phone top panel render it `object-fit: contain` over the
+  gradient backing. The lightbox image is capped in viewport units — a
+  %-max-height inside the grid's auto track resolved circularly and let
+  tall posters run off the bottom of the screen. The lock-screen footer moved from absolute positioning into
+  the flow after the card, so a tall card (full description) pushes it
+  down instead of colliding; the description renders in full
+  (`pre-wrap`, no line clamp); the card is `flex-shrink: 0` so a
+  taller-than-viewport card overflows the (scrollable) overlay instead
+  of being flex-squashed and clipped by its own `overflow: hidden`; and
+  on phones the countdown timer orders itself to the top of the card —
+  above the logo — so the showtime is visible without scrolling.
+
+## [0.4.4] — 2026-08-23
+
+### Added
+
+- **Curtain** (`stream.html`, `stream-broadcaster.js`, `events.py`,
+  `state.py`, `stream-viewer.js`). An Open/Closed segmented toggle under
+  the Access lock on the broadcaster page. Closed = nobody gets in, even
+  with the code: the server empties the chunk room, blocks `viewer:auth`
+  outright, and viewers see the lock screen with the Now Showing card
+  but no code form ("Doors are closed / Check back soon"). Open restores
+  normal access — previously-authed viewers are quietly re-granted (with
+  a late-joiner replay if live), everyone else gets the code prompt (or
+  straight in when no lock is set). The curtain overrides the lock, is
+  server-owned (persisted on `stream_lock.curtain_closed`, migrated
+  idempotently, hydrated at boot), and the admin toggle initializes from
+  the connect snapshot rather than localStorage.
+
+## [0.4.3] — 2026-08-23
+
+### Added
+
+- **Now Showing on the lock screen** (viewer template, `public.css`,
+  `info.js::fillLock`). When an entry is set, the access-code card
+  becomes a movie ticket: the poster runs full-bleed down the card's
+  left panel (a 10rem cropped banner on phones), and an amber NOW
+  SHOWING eyebrow + film title + full description replace the
+  generic "Protected stream" heading above the code form (the brand logo
+  shrinks to a footnote). All CSS-driven off the existing
+  `html.has-now-showing` flag; the poster panel hides independently when
+  the entry has no poster, and the card renders exactly as before when
+  nothing is set. The IMDB / Watch-trailer buttons render under the
+  description (same `info-link` components as the overlay cards), each
+  shown only when its URL is set.
+
+## [0.4.2] — 2026-08-23
+
+### Changed
+
+- **"Built by Hyprlab" credit** (`_built_by.html`, `public.css`). The
+  viewer footer's "{app name} · vX.Y.Z" is now "Built by [mark] Hyprlab ·
+  vX.Y.Z", linking to <https://hyprlab.co/viibestream/>. The same partial
+  renders in the phone burger sheet's version row and the lock-screen
+  footer, so all three read identically. The mark is a self-hosted 64px
+  derivative (`img/hyprlab-mark.png`, ~5 KB) of the existing
+  `icon_hyprlab.png` — no external image fetch, so CSP stays untouched.
+
 ## [0.4.1] — 2026-08-23
 
 ### Added

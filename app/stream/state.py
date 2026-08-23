@@ -69,6 +69,14 @@ class _State:
     # broadcaster's browser owns the canonical copy via localStorage.
     lock_enabled: bool = False
     access_code: str | None = None       # 5 uppercase alphanumeric, no 0/O/1/I/L
+    # Curtain: when closed, NOBODY receives the stream — the viewer page
+    # shows the Now Showing card with no code entry at all. Overrides the
+    # lock (which still governs entry once the curtain reopens). Authed
+    # sids are kept while closed so reopening doesn't re-prompt them.
+    curtain_closed: bool = False
+    # Optional showtime (UTC epoch seconds) — the curtain screen counts
+    # down to it. Cleared automatically when the curtain opens.
+    curtain_eta: int | None = None
     # Whether viewers may rain emoji reactions over the video. Broadcaster-
     # controlled; owned by the broadcaster's browser (localStorage) and
     # pushed to the server on connect, like the lock.
@@ -220,6 +228,33 @@ class BroadcastState:
                 # Drop existing authorizations so everyone re-auths.
                 self._s.authed_viewer_sids.clear()
             return changed
+
+    # ── Curtain ────────────────────────────────────────────────────────
+    def set_curtain(self, closed: bool) -> bool:
+        """Open/close the curtain. Returns True iff the state changed.
+        Authorization is the caller's responsibility (events.py)."""
+        with self._s._lock:
+            new = bool(closed)
+            changed = new != self._s.curtain_closed
+            self._s.curtain_closed = new
+            return changed
+
+    def curtain_is_closed(self) -> bool:
+        with self._s._lock:
+            return self._s.curtain_closed
+
+    def set_curtain_eta(self, at: int | None) -> bool:
+        """Set/clear the showtime countdown target (UTC epoch seconds).
+        Returns True iff it changed. Validation is the caller's job."""
+        with self._s._lock:
+            new = int(at) if at is not None else None
+            changed = new != self._s.curtain_eta
+            self._s.curtain_eta = new
+            return changed
+
+    def curtain_eta(self) -> int | None:
+        with self._s._lock:
+            return self._s.curtain_eta
 
     def is_locked(self) -> bool:
         with self._s._lock:
@@ -488,6 +523,8 @@ class BroadcastState:
                 # The access code itself is NEVER included — viewers
                 # only learn whether a lock is in place, not the value.
                 "lock_enabled": bool(self._s.lock_enabled and self._s.access_code),
+                "curtain": self._s.curtain_closed,
+                "curtain_eta": self._s.curtain_eta,
                 "reactions_enabled": bool(self._s.reactions_enabled),
                 "alert": self._s.alert_message,
                 # Viewers whose browser reported it can't decode the
@@ -534,7 +571,8 @@ broadcast_state = BroadcastState()
 # restart. db / model are imported lazily to avoid import cycles.
 
 def persist_lock() -> None:
-    """Write the current in-memory lock state to its DB singleton row."""
+    """Write the current in-memory lock + curtain state to the DB
+    singleton row."""
     from ..extensions import db
     from ..models import StreamLock
 
@@ -545,12 +583,14 @@ def persist_lock() -> None:
         db.session.add(row)
     row.enabled = bool(enabled)
     row.code = code
+    row.curtain_closed = broadcast_state.curtain_is_closed()
+    row.curtain_eta = broadcast_state.curtain_eta()
     db.session.commit()
 
 
 def load_lock_from_db() -> None:
-    """Hydrate the in-memory lock from the DB at startup so an existing
-    code keeps working across restarts without a broadcaster reconnect."""
+    """Hydrate the in-memory lock + curtain from the DB at startup so
+    they keep working across restarts without a broadcaster reconnect."""
     from ..extensions import db
     from ..models import StreamLock
 
@@ -558,3 +598,5 @@ def load_lock_from_db() -> None:
     if row is None:
         return
     broadcast_state.set_lock(bool(row.enabled), row.code)
+    broadcast_state.set_curtain(bool(row.curtain_closed))
+    broadcast_state.set_curtain_eta(row.curtain_eta)
