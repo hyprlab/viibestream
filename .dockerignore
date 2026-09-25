@@ -31,6 +31,8 @@ requirements-dev.txt
 .DS_Store
 *.log
 
-# Docs not needed at runtime (RELEASE_NOTES.md + CHANGELOG.md ARE kept —
-# app/about_docs.py reads them at runtime to render the About page)
+# Docs and tooling not needed at runtime (RELEASE_NOTES.md and CHANGELOG.md
+# are kept: app/about_docs.py reads them to render the About page)
 README.md
+docs/
+tools/

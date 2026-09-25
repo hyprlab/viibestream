@@ -1,0 +1,15 @@
+#!/bin/sh
+# Refuses to commit CLAUDE.md or .claude/, which are local only (see
+# docs/CONTRIBUTING.md, "Commits"), and runs the documentation check when
+# Markdown is staged.
+set -e
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^(CLAUDE\.md|\.claude/)'; then
+    echo "pre-commit: CLAUDE.md and .claude/ are local only and must not be committed." >&2
+    echo "            git rm -r --cached CLAUDE.md .claude" >&2
+    exit 1
+fi
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '\.md$'; then
+    python3 tools/check-docs.py
+fi
