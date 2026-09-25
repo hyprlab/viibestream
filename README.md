@@ -2,7 +2,7 @@
 
 A self-hosted, browser-native live video streaming app. Sign in to the
 admin, point your browser camera/mic at it (or share a video file), and
-anyone who hits the public page sees you live — no plugins, no native
+anyone who hits the public page sees you live: no plugins, no native
 apps, no third-party services in the path. Just browser capture +
 MediaSource playback over Socket.IO.
 
@@ -34,24 +34,24 @@ MediaSource playback over Socket.IO.
 
 ### Watching
 
-- **Public viewer at `/`** — autoplay (muted by default), mute/unmute,
+- **Public viewer at `/`**: autoplay (muted by default), mute/unmute,
   volume, fullscreen, and a live viewer count. No account needed to
   watch.
-- **"Now Showing" panel** — the broadcaster can label the stream with a
+- **"Now Showing" panel**: the broadcaster can label the stream with a
   title, description, IMDB link, and a poster image; viewers open it
   from the player and it updates live as the host changes it.
-- **Light & dark theme** — a polished, responsive interface that
+- **Light & dark theme**: a polished, responsive interface that
   remembers your theme choice, with no flash on load.
 
 ### Live chat
 
-- **Real-time chat panel** alongside the stream — slides in from the
+- **Real-time chat panel** alongside the stream: slides in from the
   edge, with a live participant count and a message history for
   late-joiners.
-- **Pick a name and emoji avatar** — viewers join with a display name
+- **Pick a name and emoji avatar**: viewers join with a display name
   and a fun emoji from a curated palette; profiles are editable on the
   fly.
-- **Replies, @-mentions, and emoji reactions** — reply to a specific
+- **Replies, @-mentions, and emoji reactions**: reply to a specific
   message, mention other participants from an autocomplete menu, and
   react to messages with emoji. Pin the panel open or mute it as you
   like.
@@ -60,7 +60,7 @@ MediaSource playback over Socket.IO.
 
 ### Voice talk-back
 
-- **Viewers can talk back** — joined viewers can speak so the whole room
+- **Viewers can talk back**: joined viewers can speak so the whole room
   hears them. The mic is captured, run through voice-activity detection,
   downsampled, and streamed over the same Socket.IO connection; every
   page mixes all speakers through one Web Audio context, so several
@@ -68,28 +68,28 @@ MediaSource playback over Socket.IO.
 
 ### Broadcasting & moderation
 
-- **Broadcast from the browser** — capture camera + mic, or share a
+- **Broadcast from the browser**: capture camera + mic, or share a
   video file, and go live in one click. No plugins or native apps.
-- **Broadcaster console at `/admin/stream`** — go live, edit the "Now
+- **Broadcaster console at `/admin/stream`**: go live, edit the "Now
   Showing" metadata, and watch the chat in real time.
-- **Live participants panel** — a roster of everyone in the chat with
+- **Live participants panel**: a roster of everyone in the chat with
   per-person mute/unmute, a "mute all" control, and a mic indicator
   that highlights whoever is speaking. Disruptive viewers can be banned
   by IP.
 
 ### Administration & security
 
-- **Admin dashboard at `/admin`** — login-gated, with a fixed-header /
+- **Admin dashboard at `/admin`**: login-gated, with a fixed-header /
   scrollable-middle / fixed-footer sidebar and a settings modal (Profile
   / Users / Security / About) over a blurred backdrop.
-- **Roles & permissions** — admin / streamer / viewer with a tight
+- **Roles & permissions**: admin / streamer / viewer with a tight
   capability map. Admins manage users from Settings → Users; streamers
   can go live.
-- **Secure by default** — bcrypt passwords, CSRF on all forms, hardened
+- **Secure by default**: bcrypt passwords, CSRF on all forms, hardened
   session cookies, per-request CSP nonces, account-lockout on brute
   force, login rate limiting, and an optional Cloudflare Turnstile
   captcha. ProxyFix support for HTTPS-terminating reverse proxies.
-- **Docker-first** — runs as a single container; image published on
+- **Docker-first**: runs as a single container; image published on
   [Docker Hub](https://hub.docker.com/r/hyprlab/viibestream).
 
 ## How it works
@@ -100,8 +100,9 @@ WebSocket to the server. The server caches the first chunk (the WebM
 init segment) and fans every chunk out to the `viewers` room. Each
 viewer's browser uses MediaSource Extensions to append chunks to a
 `SourceBuffer`, so late-joiners receive the cached init segment first
-and join the stream mid-flight. See [`CLAUDE.md`](CLAUDE.md) for the
-full architecture map.
+and join the stream mid-flight. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture
+map.
 
 ## Requirements
 
@@ -112,14 +113,14 @@ full architecture map.
   docker compose version
   ```
 - A modern browser for broadcasting. Browsers only expose
-  `getUserMedia` (camera/mic) on `http://localhost` or over **HTTPS** —
+  `getUserMedia` (camera/mic) on `http://localhost` or over **HTTPS**;
   see [step 3](#3-choose-an-https-strategy).
 
 ## Install with the pre-built image
 
 The fastest path: run the published image from
 [`hyprlab/viibestream`](https://hub.docker.com/r/hyprlab/viibestream)
-— no clone, no build. You just need an empty folder for your Compose
+(no clone, no build). You just need an empty folder for your Compose
 file and your `.env`.
 
 ```bash
@@ -190,7 +191,7 @@ SECRET_KEY=<paste the long random string here>
 ```
 
 > Treat `SECRET_KEY` like a password. Changing it later invalidates all
-> existing sessions (everyone is logged out) — which is exactly what you
+> existing sessions (everyone is logged out), which is exactly what you
 > want if it ever leaks.
 
 **Set the bootstrap admin password.** On first boot, if no admin exists
@@ -217,12 +218,12 @@ HTTP origin, so pick **one** strategy in `.env`:
 
 | Strategy | When | `.env` |
 |---|---|---|
-| **A — Reverse proxy** (recommended for real domains) | Caddy / nginx / Traefik / Cloudflare terminates TLS in front of the container | `BEHIND_HTTPS_PROXY=1`, `TLS_ENABLE=0` |
-| **B — In-container self-signed TLS** | LAN / quick demos; the container serves HTTPS on `:8443` and browsers warn once per device | `BEHIND_HTTPS_PROXY=0`, `TLS_ENABLE=1`, `TLS_HOSTS=localhost,127.0.0.1,<your-LAN-IP>`, `PORT=8443` |
-| **C — HTTP on localhost** | single-machine dev only | `BEHIND_HTTPS_PROXY=0`, `TLS_ENABLE=0` |
+| **A: Reverse proxy** (recommended for real domains) | Caddy / nginx / Traefik / Cloudflare terminates TLS in front of the container | `BEHIND_HTTPS_PROXY=1`, `TLS_ENABLE=0` |
+| **B: In-container self-signed TLS** | LAN / quick demos; the container serves HTTPS on `:8443` and browsers warn once per device | `BEHIND_HTTPS_PROXY=0`, `TLS_ENABLE=1`, `TLS_HOSTS=localhost,127.0.0.1,<your-LAN-IP>`, `PORT=8443` |
+| **C: HTTP on localhost** | single-machine dev only | `BEHIND_HTTPS_PROXY=0`, `TLS_ENABLE=0` |
 
 Also set `PUBLIC_ORIGIN` to every origin a browser will load the page
-from (comma-separated) — Socket.IO rejects WebSocket handshakes from
+from (comma-separated); Socket.IO rejects WebSocket handshakes from
 origins not in this list. For a public domain include the `https://`
 form, e.g. `PUBLIC_ORIGIN=https://stream.example.com`.
 
@@ -243,7 +244,7 @@ curl -fsS http://localhost:8080/healthz   # -> {"ok": true, "version": "..."}
 
 ### 5. First sign-in
 
-1. Open **http://localhost:8080** — the public viewer (no stream yet).
+1. Open **http://localhost:8080**, the public viewer (no stream yet).
 2. Go to **http://localhost:8080/auth/login** and sign in with
    `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD`.
 3. Change your password under **Settings → Profile**, then blank
@@ -252,7 +253,7 @@ curl -fsS http://localhost:8080/healthz   # -> {"ok": true, "version": "..."}
 
 ## Build from source instead
 
-Prefer to build the image yourself? Clone the repo — it ships its own
+Prefer to build the image yourself? Clone the repo; it ships its own
 `docker-compose.yml` with `build: .`:
 
 ```bash
@@ -271,10 +272,10 @@ image locally instead of pulling it.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SECRET_KEY` | — (**required**) | Signs session cookies and CSRF tokens. Long random string. |
+| `SECRET_KEY` | **Required** | Signs session cookies and CSRF tokens. Long random string. |
 | `INITIAL_ADMIN_USERNAME` | `admin` | Username for the bootstrap admin (first boot only). |
 | `INITIAL_ADMIN_EMAIL` | `admin@example.com` | Email for the bootstrap admin. |
-| `INITIAL_ADMIN_PASSWORD` | — | One-time bootstrap password. Blank it after first sign-in. |
+| `INITIAL_ADMIN_PASSWORD` | None | One-time bootstrap password. Blank it after first sign-in. |
 | `BEHIND_HTTPS_PROXY` | `0` | `1` enables HSTS, `Secure` cookies, and trusts one hop of `X-Forwarded-*`. |
 | `TLS_ENABLE` | `0` | `1` makes the container serve self-signed HTTPS on `:8443`. |
 | `TLS_HOSTS` | `localhost,127.0.0.1` | SANs baked into the self-signed cert when `TLS_ENABLE=1`. |
@@ -282,8 +283,8 @@ image locally instead of pulling it.
 | `PORT` | `8080` | Host port published by Docker Compose. |
 | `INTERNAL_PORT` | `8000` | Container listen port (`8000` plain / `8443` with TLS). |
 | `DATABASE_URL` | `sqlite:////app/instance/viibestream.db` | SQLAlchemy database URL (SQLite on the `instance` volume by default). |
-| `TURNSTILE_SITE_KEY` | — | Optional: seeds the Cloudflare Turnstile site key on first boot. |
-| `TURNSTILE_SECRET_KEY` | — | Optional: seeds the Turnstile secret key. Manage from Settings → Security after. |
+| `TURNSTILE_SITE_KEY` | None | Optional: seeds the Cloudflare Turnstile site key on first boot. |
+| `TURNSTILE_SECRET_KEY` | None | Optional: seeds the Turnstile secret key. Manage from Settings → Security after. |
 
 ## Production behind a reverse proxy
 
@@ -320,7 +321,7 @@ location / {
 }
 ```
 
-Caddy needs almost no config — it terminates TLS and proxies WebSockets
+Caddy needs almost no config: it terminates TLS and proxies WebSockets
 automatically:
 
 ```caddy
@@ -365,13 +366,17 @@ Either way, your `.env` and the `viibestream_data` volume are preserved.
 
 Both live at the repo root and are the **single source of truth**:
 
-- [`RELEASE_NOTES.md`](RELEASE_NOTES.md) — user-friendly summary of each version.
-- [`CHANGELOG.md`](CHANGELOG.md) — the full implementation log.
+- [`RELEASE_NOTES.md`](RELEASE_NOTES.md): user-friendly summary of each version.
+- [`CHANGELOG.md`](CHANGELOG.md): the full implementation log.
 
 These same files render in-app under **Settings → About** (release notes
 expanded, changelog collapsed). Editing the Markdown is the only step
-needed to update both the docs and the in-app view — see
+needed to update both the docs and the in-app view; see
 [`app/about_docs.py`](app/about_docs.py).
+
+Versions follow strict [SemVer](https://semver.org/); how releases are
+numbered and made is in [docs/RELEASING.md](docs/RELEASING.md), and the
+conventions for contributing are in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Development (without Docker)
 
@@ -393,9 +398,9 @@ Compose.
 
 Viibestream is built by a human maintainer working with generative AI as a development tool:
 
-- **Code** — the large majority of the Python and JavaScript in this repository was written with Anthropic's Claude (via Claude Code), working from the maintainer's direction. The maintainer decides what gets built, reviews the results, tests every release, and signs off on everything that ships.
-- **Text** — documentation, release notes, and in-app copy are largely AI-drafted and human-edited.
-- **The app itself contains no AI.** Viibestream has no AI features and makes no requests to AI services — your camera, microphone, and streams go only to your own server and the viewers you share them with. AI was used to *build* the app, not to run it.
+- **Code**: the large majority of the Python and JavaScript in this repository was written with Anthropic's Claude (via Claude Code), working from the maintainer's direction. The maintainer decides what gets built, reviews the results, tests every release, and signs off on everything that ships.
+- **Text**: documentation, release notes, and in-app copy are largely AI-drafted and human-edited.
+- **The app itself contains no AI.** Viibestream has no AI features and makes no requests to AI services: your camera, microphone, and streams go only to your own server and the viewers you share them with. AI was used to *build* the app, not to run it.
 
 Bug reports and pull requests are welcome from humans and their AI tools alike; everything merged gets the same human review.
 

@@ -11,7 +11,7 @@ The user-facing summary of each release lives in
 
 ## [Unreleased]
 
-## [0.4.5] — 2026-08-23
+## [0.4.5] - 2026-08-23
 
 ### Added
 
@@ -23,7 +23,7 @@ The user-facing summary of each release lives in
   `stream_lock.curtain_eta`, migrated idempotently). While the curtain
   is closed, viewers see a live "Show begins in H:MM:SS" ticker on the
   curtain screen (amber, tabular digits; "Any moment now…" with a soft
-  pulse once it hits zero — the curtain still opens manually). The admin
+  pulse once it hits zero; the curtain still opens manually). The admin
   status line mirrors the countdown; opening the curtain retires the
   showtime so a later close never shows a stale one.
 - **Poster lightbox + lock-screen layout fixes** (`info.js`,
@@ -32,7 +32,7 @@ The user-facing summary of each release lives in
   poster is never cropped anymore: both the desktop side panel (320px
   wide; the card grows to 45rem so the content column keeps its 25rem)
   and the phone top panel render it `object-fit: contain` over the
-  gradient backing. The lightbox image is capped in viewport units — a
+  gradient backing. The lightbox image is capped in viewport units: a
   %-max-height inside the grid's auto track resolved circularly and let
   tall posters run off the bottom of the screen. The lock-screen footer moved from absolute positioning into
   the flow after the card, so a tall card (full description) pushes it
@@ -40,10 +40,10 @@ The user-facing summary of each release lives in
   (`pre-wrap`, no line clamp); the card is `flex-shrink: 0` so a
   taller-than-viewport card overflows the (scrollable) overlay instead
   of being flex-squashed and clipped by its own `overflow: hidden`; and
-  on phones the countdown timer orders itself to the top of the card —
-  above the logo — so the showtime is visible without scrolling.
+  on phones the countdown timer orders itself to the top of the card
+  (above the logo) so the showtime is visible without scrolling.
 
-## [0.4.4] — 2026-08-23
+## [0.4.4] - 2026-08-23
 
 ### Added
 
@@ -53,14 +53,14 @@ The user-facing summary of each release lives in
   with the code: the server empties the chunk room, blocks `viewer:auth`
   outright, and viewers see the lock screen with the Now Showing card
   but no code form ("Doors are closed / Check back soon"). Open restores
-  normal access — previously-authed viewers are quietly re-granted (with
+  normal access: previously-authed viewers are quietly re-granted (with
   a late-joiner replay if live), everyone else gets the code prompt (or
   straight in when no lock is set). The curtain overrides the lock, is
   server-owned (persisted on `stream_lock.curtain_closed`, migrated
   idempotently, hydrated at boot), and the admin toggle initializes from
   the connect snapshot rather than localStorage.
 
-## [0.4.3] — 2026-08-23
+## [0.4.3] - 2026-08-23
 
 ### Added
 
@@ -77,7 +77,7 @@ The user-facing summary of each release lives in
   description (same `info-link` components as the overlay cards), each
   shown only when its URL is set.
 
-## [0.4.2] — 2026-08-23
+## [0.4.2] - 2026-08-23
 
 ### Changed
 
@@ -87,9 +87,9 @@ The user-facing summary of each release lives in
   renders in the phone burger sheet's version row and the lock-screen
   footer, so all three read identically. The mark is a self-hosted 64px
   derivative (`img/hyprlab-mark.png`, ~5 KB) of the existing
-  `icon_hyprlab.png` — no external image fetch, so CSP stays untouched.
+  `icon_hyprlab.png`: no external image fetch, so CSP stays untouched.
 
-## [0.4.1] — 2026-08-23
+## [0.4.1] - 2026-08-23
 
 ### Added
 
@@ -98,7 +98,7 @@ The user-facing summary of each release lives in
   link unfurls with the movie's title, description (whitespace-collapsed,
   capped at 300 chars), and poster (`/poster?v=<etag>`, absolute + etag-
   stamped so platforms re-crawl a swapped poster) instead of the default
-  branding. Each field falls back independently — no poster keeps the
+  branding. Each field falls back independently: no poster keeps the
   branding OG image. Poster previews drop the hard-coded 1200×630 size
   hints (posters are portrait) and alt-text the image with the title.
   Scoped to the viewer route via render_template kwargs (they override
@@ -106,7 +106,7 @@ The user-facing summary of each release lives in
   preview. Now Showing data was already public via /api/info + /poster,
   so the meta tags expose nothing new.
 
-## [0.4.0] — 2026-08-22
+## [0.4.0] - 2026-08-22
 
 ### Added
 
@@ -114,26 +114,26 @@ The user-facing summary of each release lives in
   Under 48rem the page becomes an app-like frame: the page never scrolls;
   the video is a full-bleed stage that takes every pixel the chat doesn't;
   the control row rides ON the video over a bottom scrim (volume slider and
-  latency/quality chips hidden — hardware volume + a compact `LIVE · N
+  latency/quality chips hidden; hardware volume + a compact `LIVE · N
   watching` readout); the chat is a bottom sheet with rounded top corners
-  whose header doubles as a grab bar — tap it (or the chevron,
+  whose header doubles as a grab bar: tap it (or the chevron,
   `#chat-collapse-btn`) to collapse the sheet to its header and give the
   video the whole screen (persisted as `vbs-chat-collapsed`). The fold is
   animated: the sheet's height tweens between its expanded size and the
   bar (0.32s ease), the player glides into the freed space, and the
-  sheet's contents — wrapped in `.chat-body` for this — fade out first so
+  sheet's contents (wrapped in `.chat-body` for this) fade out first so
   nothing squashes mid-animation (visibility flips after the fade;
   reduced-motion disables all of it). Safe-area insets respected top and
   bottom. Landscape phones (`max-height: 32rem`)
   get a tightened two-column grid with the same compact controls.
 - **Burger menu** (`#menu-btn`, `body.menu-open`). On phones the header
-  action row (`#public-actions` — Now Showing, connection status,
+  action row (`#public-actions`: Now Showing, connection status,
   Admin/Sign in, version) folds into a slide-down glass sheet under the
   burger; same elements and ids, CSS repositions them, so info.js and the
   status chip keep working unmodified.
 - **iPhone fullscreen** (`stream-viewer.js`). Where the element-fullscreen
   API doesn't exist (iPhone), the fullscreen button falls back to the
-  video's native `webkitEnterFullscreen()` — rotate-to-landscape works.
+  video's native `webkitEnterFullscreen()`; rotate-to-landscape works.
 - **Real playback-capability reports** replace the codec-guessing
   "No Apple viewers" chip. Viewers emit `viewer:playback {ok}` when MSE
   accepts/rejects the broadcast mime (`stream-viewer.js`); the server
@@ -141,7 +141,7 @@ The user-facing summary of each release lives in
   cleared on (re)start and viewer departure) and pushes
   `stream:playback_issues {count}` to broadcasters (`events.py`). The
   broadcaster chip now reads "⚠ N viewers can't play this" and only
-  appears when someone is actually affected — WebKit's decode support
+  appears when someone is actually affected. WebKit's decode support
   moves too fast for UA/codec heuristics (Safari 18.4 even records WebM).
 
 ### Fixed
@@ -152,23 +152,23 @@ The user-facing summary of each release lives in
   renders at 1rem/16px, which suppresses the zoom without resorting to
   `maximum-scale=1` (that hack breaks pinch-zoom on Android).
 
-## [0.3.0] — 2026-08-22
+## [0.3.0] - 2026-08-22
 
 ### Added
 
 - **Safari & iPhone/iPad playback** . The broadcast pipeline now prefers
-  **fragmented MP4 (H.264/AAC)** — the one container every browser's MSE
-  accepts — over WebM:
+  **fragmented MP4 (H.264/AAC)**, the one container every browser's MSE
+  accepts, over WebM:
   - `static/js/stream-broadcaster.js::pickMime` tries
     `video/mp4;codecs=avc1…,mp4a.40.2` first (recordable in Chrome/Edge
     130+ and Safari 14.1+) and falls back to WebM (Firefox can't record
     MP4). Bare `video/mp4` sits *below* WebM: a recorder that accepts
     only the bare string (e.g. Chromium without licensed codecs) would
-    fill it with VP9 — useless to Safari — and the codec-less mime
+    fill it with VP9 (useless to Safari) and the codec-less mime
     breaks Chrome's own MSE. A ⚠ chip beside the Codec stat warns when
     a WebM-only browser is broadcasting, since Apple-device viewers
     can't play that. fMP4 recording sets
-    `videoKeyFrameIntervalDuration: 1000` — mp4 fragments can only
+    `videoKeyFrameIntervalDuration: 1000`; mp4 fragments can only
     close on a keyframe, and without forced ~1s keyframes Chrome's
     muxer emits a chunk every ~7s or worse.
   - `app/stream/state.py` late-joiner buffer is now container-aware: for
@@ -201,12 +201,12 @@ The user-facing summary of each release lives in
   to muted play if the browser blocks unmuted autoplay).
 - **Honest browser warning** (`browser-warning.js`, viewer template). The
   blanket "Safari may perform poorly" banner is gone. The banner now
-  only appears when the browser has no MSE at all (iOS < 17.1), or —
-  raised by the viewer with a format-specific message — when the active
+  only appears when the browser has no MSE at all (iOS < 17.1), or
+  (raised by the viewer with a format-specific message) when the active
   broadcast is a format the browser truly can't play (a WebM stream
   viewed from Safari).
 
-## [0.2.4] — 2026-07-05
+## [0.2.4] - 2026-07-05
 
 ### Added
 
@@ -218,10 +218,10 @@ The user-facing summary of each release lives in
   `chat:user_updated` to the chat room + a fresh `chat:roster` to the panel;
   the renamed viewer's own client updates its identity and localStorage so the
   name sticks across reconnects. Duplicate/invalid names surface a transient
-  toast via `chat:mod_error`. No system message is posted — renaming is often
+  toast via `chat:mod_error`. No system message is posted; renaming is often
   used to clean up an offensive handle, so it's applied silently.
 
-## [0.2.3] — 2026-07-05
+## [0.2.3] - 2026-07-05
 
 ### Added
 
@@ -237,7 +237,7 @@ The user-facing summary of each release lives in
 - **Broadcast file-audio level + mute** beside the scrubber
   (`templates/admin/stream.html`, `stream-broadcaster.js`). A Web Audio gain on
   the file's captured audio lets the broadcaster set how loud the shared file
-  goes out — independent of each viewer's own volume — because `captureStream()`
+  goes out (independent of each viewer's own volume) because `captureStream()`
   ignores the media element's `volume`/`muted`. The gain is built inside the
   Go-Live click so its `AudioContext` starts *running* (one created off a
   gesture starts suspended and renders silence), with a gesture-based resume
@@ -270,7 +270,7 @@ The user-facing summary of each release lives in
   monitors at the same level they broadcast, so a separate local mute is no
   longer needed.
 
-## [0.2.2] — 2026-07-04
+## [0.2.2] - 2026-07-04
 
 ### Changed
 
@@ -283,7 +283,7 @@ The user-facing summary of each release lives in
   `viibeware.svg` asset and `.viibeware-*` CSS classes were removed
   (`app/templates/_settings_modal.html`, `app/static/css/admin.css`).
 
-## [0.2.1] — 2026-06-17
+## [0.2.1] - 2026-06-17
 
 ### Added
 
@@ -300,13 +300,13 @@ The user-facing summary of each release lives in
   parties" (`app/app_settings.py::DEFAULT_APP_TAGLINE`), replacing the previous
   "Watch the live stream on …" text.
 
-## [0.2.0] — 2026-06-17
+## [0.2.0] - 2026-06-17
 
 ### Added
 
 - **OpenGraph / Twitter Card link previews** (`app/templates/_meta_og.html`,
-  `app/main/routes.py`). A shared meta partial — included in the public viewer,
-  sign-in, and admin `<head>`s — emits `og:*` + `twitter:card` tags so the link
+  `app/main/routes.py`). A shared meta partial (included in the public viewer,
+  sign-in, and admin `<head>`s) emits `og:*` + `twitter:card` tags so the link
   unfurls with a title, description, and 1200×630 image when posted to chat apps
   and social media. The `og:image` URL is absolute and version-stamped (`?v=`)
   so platforms re-crawl when the image changes. A new public `/og-image` route
@@ -322,11 +322,11 @@ The user-facing summary of each release lives in
 - **`AppSettings` model** (`app/models.py`) gained `app_title` and
   `og_image_bytes` / `og_image_mime` / `og_image_etag` columns (added to existing
   DBs idempotently via `_ensure_schema`). The effective title is mirrored into
-  `app.config["APP_NAME"]` at boot and on save — the same pattern used for the
-  Turnstile config — so every `{{ app_name }}` reflects the current value with no
+  `app.config["APP_NAME"]` at boot and on save (the same pattern used for the
+  Turnstile config) so every `{{ app_name }}` reflects the current value with no
   per-request query (`app/app_settings.py::apply_branding_config`).
 
-## [0.1.0] — 2026-06-16
+## [0.1.0] - 2026-06-16
 
 ### Added
 
@@ -335,7 +335,7 @@ The user-facing summary of each release lives in
   WebM mime, emits the WebM init segment followed by ~250 ms chunks over the
   `bcast:chunk` Socket.IO event. Video files can be shared in place of a live camera.
 - **MediaSource-based viewer** (`static/js/stream-viewer.js`, `templates/public/viewer.html`).
-  Anonymous viewers join the `viewers` room, receive `stream:state`, and — when live —
+  Anonymous viewers join the `viewers` room, receive `stream:state`, and, when live,
   the cached init segment plus subsequent `stream:chunk` binary events, rebuilding a
   `SourceBuffer` to join mid-stream. Autoplay (muted), mute/unmute, volume, fullscreen,
   and a live viewer count.

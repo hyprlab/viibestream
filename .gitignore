@@ -20,10 +20,6 @@ instance/
 *.sqlite3
 temp/
 
-# Agent / tooling local state
-.claude/
-CLAUDE.local.md
-
 # OS / editor
 .DS_Store
 Thumbs.db

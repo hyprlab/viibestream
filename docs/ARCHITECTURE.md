@@ -1,15 +1,17 @@
-# CLAUDE.md
+# Architecture
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+How Viibestream fits together, and the conventions to keep when editing it.
+Commit and release rules are in [CONTRIBUTING.md](CONTRIBUTING.md) and
+[RELEASING.md](RELEASING.md).
 
 ## What this is
 
 Viibestream is a Flask + Socket.IO video streaming web app, packaged as a
 single Docker Compose service. The admin captures camera/mic in the browser
-and broadcasts WebM chunks via WebSocket; viewers on the public page
+and broadcasts media chunks (fragmented MP4, or WebM on Firefox) via WebSocket; viewers on the public page
 receive those chunks and play them back via MediaSource Extensions.
 
-## Run it
+## Running it
 
 ```bash
 cp .env.example .env             # set SECRET_KEY and INITIAL_ADMIN_PASSWORD
@@ -38,23 +40,23 @@ python run.py
 ## Architecture
 
 ### Request paths
-- **`/`** (`app/main/routes.py`) — public viewer page, anonymous OK.
-- **`/auth/...`** (`app/auth/routes.py`) — login, logout, change password.
-- **`/admin/...`** (`app/admin/routes.py`) — backend; requires login. All
+- **`/`** (`app/main/routes.py`): public viewer page, anonymous OK.
+- **`/auth/...`** (`app/auth/routes.py`): login, logout, change password.
+- **`/admin/...`** (`app/admin/routes.py`): backend; requires login. All
   routes are gated by `@bp.before_request` + per-route permission
   decorators in `app/auth/permissions.py`.
 
 ### Streaming dataflow
 1. Broadcaster page (`templates/admin/stream.html` +
    `static/js/stream-broadcaster.js`) calls `getUserMedia`, builds a
-   `MediaRecorder` — preferring **fragmented MP4 (H.264/AAC)**, the only
+   `MediaRecorder`, preferring **fragmented MP4 (H.264/AAC)**, the only
    format Safari/iOS viewers can play via MSE, falling back to WebM on
-   Firefox — and emits the init segment followed by chunks over
+   Firefox, and emits the init segment followed by chunks over
    `bcast:chunk` Socket.IO events (`start(250)`; note Chrome's fMP4
    muxer ignores the timeslice and emits ~one chunk per keyframe).
 2. `app/stream/events.py` validates the broadcaster's permissions,
-   stashes the **init segment** in `BroadcastState` (`app/stream/state.py`
-   — container-aware: fMP4 `moof` boxes or WebM Clusters), and fans every
+   stashes the **init segment** in `BroadcastState` (`app/stream/state.py`,
+   container-aware: fMP4 `moof` boxes or WebM Clusters), and fans every
    chunk out to the `viewers` Socket.IO room as `stream:chunk` binary
    events.
 3. The viewer page (`templates/public/viewer.html` +
@@ -88,7 +90,7 @@ queue (`socketio.init_app(..., message_queue="redis://...")`).
 - `app/__init__.py::_register_security_headers` builds a per-request
   CSP with a nonce in `g.csp_nonce`. All inline `<script>` tags
   reference `{{ csp_nonce }}`. Adding a new inline script without a
-  nonce will be blocked by CSP — either give it a nonce or move it to
+  nonce will be blocked by CSP: either give it a nonce or move it to
   `static/js/`.
 - CSRF is on globally via `Flask-WTF`. All forms include
   `{{ csrf_token() }}` (or use `form.csrf_token`); the logout button is
@@ -100,14 +102,13 @@ queue (`socketio.init_app(..., message_queue="redis://...")`).
 ## Conventions
 
 - **Sizing**: all CSS dimensions are in `rem`. `1rem == 16px` (set on
-  `html`). Don't introduce `px` for layout — use `rem` (or unitless
+  `html`). Don't introduce `px` for layout; use `rem` (or unitless
   `1.5` for `line-height`). Borders use `1px` (intentionally hairline).
 - **Theme**: `data-theme="dark|light"` on `<html>`, switched by
   `static/js/theme.js`, persisted as `vbs-theme` in `localStorage`. Pre-paint
   bootstrap script in each base template prevents flash.
-- **Sidebar**: three-zone flex layout — fixed brand at the top, scrollable
-  `<nav>` in the middle, fixed `.sidebar-footer` at the bottom. Mirrors
-  the pattern in `~/tspro`.
+- **Sidebar**: three-zone flex layout: fixed brand at the top, scrollable
+  `<nav>` in the middle, fixed `.sidebar-footer` at the bottom.
 - **Modals**: any element with `data-open-modal="<id>"` opens
   `#<id>.modal-root`; close via `data-close-modal`, Escape, or backdrop
   click. Backdrop uses `backdrop-filter: blur()` for the dim/blur effect.
